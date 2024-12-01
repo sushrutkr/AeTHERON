@@ -5,8 +5,7 @@
 /graph-neural-operator/__pycache__/
 /graph-neural-operator/model_epoch_*
 *.pth
+*.npy
 /sample_data/
-**/__pycache__/
-__pycache__/*
-model/__pycache__/*
-prediction.npy
+/__pycache__/*
+/model/__pycache__/*
