@@ -1,0 +1,12 @@
+/1e6/
+/EGNO/mlruns/
+/EGNO/exp_results
+/EGNO/model/__pycache__/
+/graph-neural-operator/__pycache__/
+/graph-neural-operator/model_epoch_*
+*.pth
+/sample_data/
+**/__pycache__/
+__pycache__/*
+model/__pycache__/*
+prediction.npy
