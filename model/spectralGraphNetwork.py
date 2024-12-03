@@ -60,7 +60,7 @@ class SpecGNO(nn.Module):
 
     edge_attr = edge_attr.repeat(self.ntsteps, 1)
 
-    print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([10542, 38]) torch.Size([71562, 12]) torch.Size([2, 71562])
+    # print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([10542, 38]) torch.Size([71562, 12]) torch.Size([2, 71562])
 
     x = self.feature_embedding(x)
 

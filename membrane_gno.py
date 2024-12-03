@@ -23,7 +23,7 @@ def set_seed(seed):
 	torch.backends.cudnn.benchmark = False
 
 def dataloader(folder, radius_train, batch_size,ntsteps=1):
-	data = generateDataset(ninit=3000, nend=4000, ngap=10, splitLen=ntsteps, folder=folder)
+	data = generateDatasetMembrane(ninit=3000, nend=4000, ngap=10, splitLen=ntsteps, folder=folder)
 	nodes, vel, elem = data.get_output_split()
 
 	nodes[:,0] -= 20
@@ -77,7 +77,7 @@ def main(checkpoint_path=None):
 	edge_features = 12
 	node_features = 6
 	nLayers = 2
-	epochs = 10
+	epochs = 600
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
@@ -204,7 +204,7 @@ def main(checkpoint_path=None):
 
 if __name__ == "__main__":
 	# main()
-	main('model_epoch_200.pth')
+	main('model_epoch_500.pth')
 
     
     

@@ -214,7 +214,7 @@ class CartesianMeshGenerator(object):
       self.grid = np.vstack([xx.ravel() for xx in np.meshgrid(*grids, indexing='ij')]).T
     
   def ball_connectivity_old(self, r):
-    #extremely complex as it creates a full matrix first and then sample
+    #computationaly inefficient complex as it creates a full matrix first and then sample
     pwd = sklearn.metrics.pairwise_distances(self.grid)
     self.edge_index = np.vstack(np.where(pwd <= r))
     self.n_edges = self.edge_index.shape[1]
