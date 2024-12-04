@@ -42,7 +42,7 @@ class SpecGNO(nn.Module):
     
   def forward(self, data):
     x, edge_index, edge_attr, batch, ptr = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr
-    # print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([3514, 6]) torch.Size([23854, 12]) torch.Size([2, 23854])
+    print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([3514, 6]) torch.Size([23854, 12]) torch.Size([2, 23854])
     
     num_graphs = len(ptr) - 1 # or number of batches
     num_nodes = x.shape[0]
@@ -66,7 +66,7 @@ class SpecGNO(nn.Module):
 
     for i in range(self.nConvolutions):
       # edge_attr = self.time_conv_modules[i](edge_attr)
-      x = self.time_conv_modules[i](x.view(self.ntsteps, num_nodes, self.nNodeFeatEmbedding)).view(self.ntsteps*num_nodes, self.nNodeFeatEmbedding)
+      # x = self.time_conv_modules[i](x.view(self.ntsteps, num_nodes, self.nNodeFeatEmbedding)).view(self.ntsteps*num_nodes, self.nNodeFeatEmbedding)
       x = F.relu(self.layer(x, edge_index, edge_attr))
 
     x = self.inv_embedding(x)

@@ -54,12 +54,14 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	data_train = []
 	for j in range(num_samples):
 		edge_attr = mesh.attributes(j)
-
+		
+		# print(torch.tensor(splitData[j,0,:]).view(-1,1), torch.tensor(splitData[j,:,:].transpose()))
 		data_train.append(Data(
-			x=splitData[j,0,:],
-			y=splitData[j,:,:],
-			edge_index=edge_index,
-			edge_attr=torch.tensor(edge_attr, dtype=torch.float32)
+			x = torch.tensor(splitData[j,0,:], dtype=torch.float32).view(-1,1),
+			y = torch.tensor(splitData[j,1,:], dtype=torch.float32).view(-1,1),
+			# y=torch.tensor(splitData[j,:,:].transpose(), dtype=torch.float32),
+			edge_index = edge_index,
+			edge_attr = torch.tensor(edge_attr, dtype=torch.float32)
 		))
 
 
@@ -68,25 +70,25 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True)
 	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False)
 
-	return None, None, None #train_loader, val_loader, scaler
+	return train_loader, val_loader, scaler
 
 def main(checkpoint_path=None):
 	set_seed(42)
 
 	# Parameters
 	radius_train = 0.012
-	batch_size = 5
-	width = 64  # uplifting node_features+time_emb_dim to wwidth
-	ker_width = 8  
-	edge_features = 12
-	node_features = 6
+	batch_size = 1
+	width = 8  # uplifting node_features+time_emb_dim to wwidth
+	ker_width = 2
+	edge_features = 8
+	node_features = 1
 	nLayers = 2
-	epochs = 10
+	epochs = 1
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
-	ntsteps = 3
-	time_emb_dim = 32
+	ntsteps = 2
+	time_emb_dim = 4
 
 	validation_frequency = 100
 	save_frequency = 100
@@ -97,38 +99,38 @@ def main(checkpoint_path=None):
 	train_loader, val_loader, scaler = dataloader('./sample_data/', radius_train, batch_size, ntsteps)
 	print("----Loaded Data----")
 
-	# # Initialize model
-	# model_instance = SpecGNO(inNodeFeatures=node_features, nNodeFeatEmbedding=width, ker_width=ker_width, nConvolutions=nLayers, nEdgeFeatures=edge_features, ntsteps=ntsteps,time_emb_dim=time_emb_dim).to(device)
-	# print(model_instance)
-	# optimizer = torch.optim.Adam(model_instance.parameters(), lr=learning_rate)
-	# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
-	# criterion = torch.nn.MSELoss()
+	# Initialize model
+	model_instance = SpecGNO(inNodeFeatures=node_features, nNodeFeatEmbedding=width, ker_width=ker_width, nConvolutions=nLayers, nEdgeFeatures=edge_features, ntsteps=ntsteps,time_emb_dim=time_emb_dim).to(device)
+	print(model_instance)
+	optimizer = torch.optim.Adam(model_instance.parameters(), lr=learning_rate)
+	scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
+	criterion = torch.nn.MSELoss()
 
-	# # Initialize training
-	# start_epoch = 0
-	# if checkpoint_path:
-	# 	checkpoint = torch.load(checkpoint_path)        
-	# 	model_instance.load_state_dict(checkpoint['model_state_dict'])
-	# 	optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-	# 	scheduler.load_state_dict(checkpoint['scheduler_state_dict'])        
-	# 	start_epoch = checkpoint['epoch'] + 1
-	# 	best_val_loss = checkpoint['val_loss']
-	# 	print(f"Resuming training from epoch {start_epoch}")
-	# else:
-	# 	best_val_loss = float('inf')
+	# Initialize training
+	start_epoch = 0
+	if checkpoint_path:
+		checkpoint = torch.load(checkpoint_path)        
+		model_instance.load_state_dict(checkpoint['model_state_dict'])
+		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+		scheduler.load_state_dict(checkpoint['scheduler_state_dict'])        
+		start_epoch = checkpoint['epoch'] + 1
+		best_val_loss = checkpoint['val_loss']
+		print(f"Resuming training from epoch {start_epoch}")
+	else:
+		best_val_loss = float('inf')
 
-	# #training
-	# for epoch in range(start_epoch, epochs):
-	# 	model_instance.train()
-	# 	train_loss = 0.0
-	# 	for batch in train_loader:
-	# 		optimizer.zero_grad()
-	# 		batch = batch.to(device)
-	# 		out = model_instance(batch)
-	# 		loss = criterion(out.view(-1, 1), batch.y.view(-1, 1))
-	# 		loss.backward()
-	# 		optimizer.step()
-	# 		train_loss += loss.item()
+	#training
+	for epoch in range(start_epoch, epochs):
+		model_instance.train()
+		train_loss = 0.0
+		for batch in train_loader:
+			optimizer.zero_grad()
+			batch = batch.to(device)
+			out = model_instance(batch)
+			loss = criterion(out.view(-1, 1), batch.y.view(-1, 1))
+			loss.backward()
+			optimizer.step()
+			train_loss += loss.item()
 		
 	# 	avg_train_loss = train_loss / len(train_loader)
 	# 	print(f"Epoch {epoch+1}/{epochs}, Train Loss: {avg_train_loss:.6f}, lr: {optimizer.param_groups[0]['lr']:.6f}")

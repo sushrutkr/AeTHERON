@@ -77,7 +77,7 @@ def main(checkpoint_path=None):
 	edge_features = 12
 	node_features = 6
 	nLayers = 2
-	epochs = 600
+	epochs = 1
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
@@ -203,8 +203,8 @@ def main(checkpoint_path=None):
 	print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	# main()
-	main('model_epoch_500.pth')
+	main()
+	# main('model_epoch_500.pth')
 
     
     
