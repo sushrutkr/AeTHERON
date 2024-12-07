@@ -77,7 +77,7 @@ def main(checkpoint_path=None):
 	edge_features = 12
 	node_features = 6
 	nLayers = 2
-	epochs = 700
+	epochs = 500
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
@@ -131,14 +131,7 @@ def main(checkpoint_path=None):
 
 		# Save model 
 		if (epoch + 1) % save_frequency == 0:
-			torch.save({
-				'epoch': epoch,
-				'model_state_dict': model_instance.state_dict(),
-				'optimizer_state_dict': optimizer.state_dict(),
-				'scheduler_state_dict': scheduler.state_dict(),
-				'train_loss': avg_train_loss,
-				'val_loss': best_val_loss
-			}, f'model_epoch_{epoch+1}.pth')
+			torch.save(model_instance.state_dict(), f'model_epoch_{epoch+1}.pth')
 			print(f"Model saved at epoch {epoch+1}")
 
 		# Validation
@@ -197,8 +190,8 @@ def main(checkpoint_path=None):
 	# print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	# main()
-	main('membrane_checkpoint.pth')
+	main()
+	# main('model_epoch_700.pth')
 
     
     
