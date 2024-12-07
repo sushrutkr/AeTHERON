@@ -34,9 +34,13 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	"""
 	data = generateDatasetFluid(folder,splitLen=ntsteps)
 
+	
+
 	scaler = MinMaxScaler(feature_range=(0,1))
 	scaler, vorticity = data.scaling(scaler)
 	splitData = data.splitDataset()
+	print(splitData.shape)
+	combinedData = data.combined_data()
 
 	num_samples = splitData.shape[0]
 	print("Num of samples batches, timesteps per sample : ", num_samples, splitData.shape[1])
@@ -47,7 +51,9 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	val_indices = indices[:num_val_samples]
 	train_indices = indices[num_val_samples:]
 
-	mesh = CartesianMeshGenerator(real_space=[[0, 1.5],[0, 0.93],[0, 1.0]],mesh_size=[150, 93, 100],data=splitData)
+	mesh = CartesianMeshGenerator(real_space=[[0, 1.5],[0, 0.93],[0, 1.0]],mesh_size=[combinedData.shape[1], 
+																																									  combinedData.shape[2],
+																																										combinedData.shape[3]],data=splitData)
 	grid = mesh.get_grid()
 	edge_index = mesh.ball_connectivity(radius_train)
 
@@ -76,14 +82,14 @@ def main(checkpoint_path=None):
 	set_seed(42)
 
 	# Parameters
-	radius_train = 0.012
-	batch_size = 1
+	radius_train = 0.02
+	batch_size = 6
 	width = 8  # uplifting node_features+time_emb_dim to wwidth
-	ker_width = 2
+	ker_width = 4
 	edge_features = 8
 	node_features = 1
 	nLayers = 2
-	epochs = 1
+	epochs = 10000
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
@@ -100,7 +106,8 @@ def main(checkpoint_path=None):
 	print("----Loaded Data----")
 
 	# Initialize model
-	model_instance = SpecGNO(inNodeFeatures=node_features, nNodeFeatEmbedding=width, ker_width=ker_width, nConvolutions=nLayers, nEdgeFeatures=edge_features, ntsteps=ntsteps,time_emb_dim=time_emb_dim).to(device)
+	# Here I am just making next time step prediction as of now so setting ntsteps = 1 and sending ntsteps-1 to model initialisation
+	model_instance = SpecGNO(inNodeFeatures=node_features, nNodeFeatEmbedding=width, ker_width=ker_width, nConvolutions=nLayers, nEdgeFeatures=edge_features, ntsteps=ntsteps-1,time_emb_dim=time_emb_dim).to(device)
 	print(model_instance)
 	optimizer = torch.optim.Adam(model_instance.parameters(), lr=learning_rate)
 	scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
@@ -132,40 +139,40 @@ def main(checkpoint_path=None):
 			optimizer.step()
 			train_loss += loss.item()
 		
-	# 	avg_train_loss = train_loss / len(train_loader)
-	# 	print(f"Epoch {epoch+1}/{epochs}, Train Loss: {avg_train_loss:.6f}, lr: {optimizer.param_groups[0]['lr']:.6f}")
+		avg_train_loss = train_loss / len(train_loader)
+		print(f"Epoch {epoch+1}/{epochs}, Train Loss: {avg_train_loss:.6f}, lr: {optimizer.param_groups[0]['lr']:.6f}")
 
-	# 	# Save model 
-	# 	if (epoch + 1) % save_frequency == 0:
-	# 		torch.save({
-	# 			'epoch': epoch,
-	# 			'model_state_dict': model_instance.state_dict(),
-	# 			'optimizer_state_dict': optimizer.state_dict(),
-	# 			'scheduler_state_dict': scheduler.state_dict(),
-	# 			'train_loss': avg_train_loss,
-	# 			'val_loss': best_val_loss
-	# 		}, f'model_epoch_{epoch+1}.pth')
-	# 		print(f"Model saved at epoch {epoch+1}")
+		# Save model 
+		if (epoch + 1) % save_frequency == 0:
+			torch.save({
+				'epoch': epoch,
+				'model_state_dict': model_instance.state_dict(),
+				'optimizer_state_dict': optimizer.state_dict(),
+				'scheduler_state_dict': scheduler.state_dict(),
+				'train_loss': avg_train_loss,
+				'val_loss': best_val_loss
+			}, f'model_epoch_{epoch+1}.pth')
+			print(f"Model saved at epoch {epoch+1}")
 
-	# 	# Validation
-	# 	if (epoch + 1) % validation_frequency == 0:
-	# 		model_instance.eval()
-	# 		val_loss = 0.0
-	# 		all_predictions = []
-	# 		all_true_values = []
-	# 		with torch.no_grad():
-	# 			for batch in val_loader:
-	# 				batch = batch.to(device)
-	# 				out = model_instance(batch)
-	# 				loss = criterion(out.view(-1, 1), batch.y.view(-1, 1))
-	# 				val_loss += loss.item()
-	# 				all_predictions.append(out.cpu().numpy())
-	# 				all_true_values.append(batch.y.cpu().numpy())
+		# Validation
+		if (epoch + 1) % validation_frequency == 0:
+			model_instance.eval()
+			val_loss = 0.0
+			all_predictions = []
+			all_true_values = []
+			with torch.no_grad():
+				for batch in val_loader:
+					batch = batch.to(device)
+					out = model_instance(batch)
+					loss = criterion(out.view(-1, 1), batch.y.view(-1, 1))
+					val_loss += loss.item()
+					all_predictions.append(out.cpu().numpy())
+					all_true_values.append(batch.y.cpu().numpy())
 
-	# 		avg_val_loss = val_loss / len(val_loader)
-	# 		print(f"Epoch {epoch+1}/{epochs}, Validation Loss: {avg_val_loss:.6f}")
+			avg_val_loss = val_loss / len(val_loader)
+			print(f"Epoch {epoch+1}/{epochs}, Validation Loss: {avg_val_loss:.6f}")
 
-	# 		# Calculate MAE and RMSE
+			# Calculate MAE and RMSE
 	# 		all_predictions = np.concatenate(all_predictions, axis=0)
 	# 		all_true_values = np.concatenate(all_true_values, axis=0)
 
@@ -179,17 +186,11 @@ def main(checkpoint_path=None):
 	# 		print(f"Validation MAE: {mae:.4f}")
 	# 		print(f"Validation RMSE: {rmse:.4f}")
 
-	# 		# Save best model
-	# 		if avg_val_loss < best_val_loss:
-	# 			best_val_loss = avg_val_loss
-	# 			torch.save(model_instance.state_dict(), 'best_model.pth')
-	# 			print(f"Best model saved with validation loss: {best_val_loss:.6f}")
-
-	# 		# Save best model
-	# 		if avg_val_loss < best_val_loss:
-	# 			best_val_loss = avg_val_loss
-	# 			torch.save(model_instance.state_dict(), 'best_model.pth')
-	# 			print(f"Best model saved with validation loss: {best_val_loss:.6f}")
+			# Save best model
+			if avg_val_loss < best_val_loss:
+				best_val_loss = avg_val_loss
+				torch.save(model_instance.state_dict(), 'best_model.pth')
+				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
 
 	# # Final evaluation
 	# model_instance.load_state_dict(torch.load('best_model.pth'))
@@ -202,12 +203,12 @@ def main(checkpoint_path=None):
 	# 		all_predictions.append(out.cpu().numpy())
 
 	# all_predictions = np.concatenate(all_predictions, axis=0)
-	# # predictions_original_scale = scaler.inverse_transform(all_predictions.reshape(-1, 1))
+	# predictions_original_scale = scaler.inverse_transform(all_predictions.reshape(-1, 1))
 	# predictions_final = all_predictions#predictions_original_scale.reshape(-1, 30, 60).transpose(0, 2, 1)
 
 	# np.save("predictions.npy", predictions_final)
 	# print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	main()
-	# main('model_epoch_200.pth')
+	# main()
+	main('model_epoch_1000.pth')

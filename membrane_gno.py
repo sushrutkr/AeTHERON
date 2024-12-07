@@ -23,7 +23,7 @@ def set_seed(seed):
 	torch.backends.cudnn.benchmark = False
 
 def dataloader(folder, radius_train, batch_size,ntsteps=1):
-	data = generateDatasetMembrane(ninit=3000, nend=4000, ngap=10, splitLen=ntsteps, folder=folder)
+	data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder)
 	nodes, vel, elem = data.get_output_split()
 
 	nodes[:,0] -= 20
@@ -77,7 +77,7 @@ def main(checkpoint_path=None):
 	edge_features = 12
 	node_features = 6
 	nLayers = 2
-	epochs = 1
+	epochs = 700
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
@@ -176,35 +176,29 @@ def main(checkpoint_path=None):
 			# Save best model
 			if avg_val_loss < best_val_loss:
 				best_val_loss = avg_val_loss
-				torch.save(model_instance.state_dict(), 'best_model.pth')
-				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
-
-			# Save best model
-			if avg_val_loss < best_val_loss:
-				best_val_loss = avg_val_loss
-				torch.save(model_instance.state_dict(), 'best_model.pth')
+				torch.save(model_instance.state_dict(), 'membrane_checkpoint.pth')
 				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
 
 	# Final evaluation
-	model_instance.load_state_dict(torch.load('best_model.pth'))
-	model_instance.eval()
-	all_predictions = []
-	with torch.no_grad():
-		for batch in val_loader:
-			batch = batch.to(device)
-			out = model_instance(batch)
-			all_predictions.append(out.cpu().numpy())
+	# model_instance.load_state_dict(torch.load('best_model.pth'))
+	# model_instance.eval()
+	# all_predictions = []
+	# with torch.no_grad():
+	# 	for batch in val_loader:
+	# 		batch = batch.to(device)
+	# 		out = model_instance(batch)
+	# 		all_predictions.append(out.cpu().numpy())
 
-	all_predictions = np.concatenate(all_predictions, axis=0)
-	# predictions_original_scale = scaler.inverse_transform(all_predictions.reshape(-1, 1))
-	predictions_final = all_predictions#predictions_original_scale.reshape(-1, 30, 60).transpose(0, 2, 1)
+	# all_predictions = np.concatenate(all_predictions, axis=0)
+	# # predictions_original_scale = scaler.inverse_transform(all_predictions.reshape(-1, 1))
+	# predictions_final = all_predictions#predictions_original_scale.reshape(-1, 30, 60).transpose(0, 2, 1)
 
-	np.save("predictions.npy", predictions_final)
-	print("Predictions saved as 'predictions.npy'")
+	# np.save("predictions.npy", predictions_final)
+	# print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	main()
-	# main('model_epoch_500.pth')
+	# main()
+	main('membrane_checkpoint.pth')
 
     
     

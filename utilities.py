@@ -94,11 +94,11 @@ class generateDatasetFluid:
     self.combined_data()
 
   def combined_data(self):
-    self.combinedData = np.zeros(shape=(self.ntsteps, self.nx, self.ny, self.nz))
-    self.combinedData[0,:,:,:] = self.data[0,0,:,:,:]
-    for i in range(self.data.shape[0]):
-      self.combinedData[i+1,:,:,:] = self.data[i,1,:,:,:]    
-
+    # self.combinedData = np.zeros(shape=(self.ntsteps, self.nx, self.ny, self.nz))
+    # self.combinedData[0,:,:,:] = self.data[0,0,:,:,:]
+    # for i in range(self.data.shape[0]):
+    #   self.combinedData[i+1,:,:,:] = self.data[i,1,:,:,:]    
+    self.combinedData = self.data[:,3,:,:,:]
     return self.combinedData
   
   def scaling(self,scaler):
@@ -245,7 +245,6 @@ class CartesianMeshGenerator(object):
     # edge_attr = np.zeros((self.n_edges, 8))
     # for n, (i,j) in enumerate(self.edge_index.transpose()):
     #     edge_attr[n, :] = np.concatenate((self.grid[i, :], self.grid[j, :], [self.data[k, 0, i]], [self.data[k, 0, j]]))
-
     i = self.edge_index[0]
     j = self.edge_index[1]
 

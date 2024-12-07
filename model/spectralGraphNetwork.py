@@ -42,7 +42,7 @@ class SpecGNO(nn.Module):
     
   def forward(self, data):
     x, edge_index, edge_attr, batch, ptr = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr
-    print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([3514, 6]) torch.Size([23854, 12]) torch.Size([2, 23854])
+    # print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([3514, 6]) torch.Size([23854, 12]) torch.Size([2, 23854])
     
     num_graphs = len(ptr) - 1 # or number of batches
     num_nodes = x.shape[0]
