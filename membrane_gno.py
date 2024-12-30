@@ -26,9 +26,7 @@ def dataloader(folder, radius_train, batch_size,ntsteps=1):
 	data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder)
 	nodes, vel, elem = data.get_output_split()
 
-	nodes[:,0] -= 20
-	nodes[:,1] -= 20
-	nodes[:,2] -= 20
+	nodes -= 20
 
 	scaler = StandardScaler()
 
@@ -77,11 +75,11 @@ def main(checkpoint_path=None):
 	edge_features = 12
 	node_features = 6
 	nLayers = 2
-	epochs = 500
+	epochs = 10000
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
-	ntsteps = 3
+	ntsteps = 2
 	time_emb_dim = 32
 
 	validation_frequency = 100
@@ -94,7 +92,7 @@ def main(checkpoint_path=None):
 	# print("----Loaded Data----")
 
 	# Initialize model
-	model_instance = SpecGNO(inNodeFeatures=node_features, nNodeFeatEmbedding=width, ker_width=ker_width, nConvolutions=nLayers, nEdgeFeatures=edge_features, ntsteps=ntsteps,time_emb_dim=time_emb_dim).to(device)
+	model_instance = SpecGNO(inNodeFeatures=node_features, nNodeFeatEmbedding=width, ker_width=ker_width, nConvolutions=nLayers, nEdgeFeatures=edge_features, ntsteps=ntsteps-1,time_emb_dim=time_emb_dim).to(device)
 	print(model_instance)
 	optimizer = torch.optim.Adam(model_instance.parameters(), lr=learning_rate)
 	scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
@@ -103,15 +101,16 @@ def main(checkpoint_path=None):
 	# Initialize training
 	start_epoch = 0
 	if checkpoint_path:
-		checkpoint = torch.load(checkpoint_path)        
-		model_instance.load_state_dict(checkpoint['model_state_dict'])
-		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-		scheduler.load_state_dict(checkpoint['scheduler_state_dict'])        
-		start_epoch = checkpoint['epoch'] + 1
-		best_val_loss = checkpoint['val_loss']
-		print(f"Resuming training from epoch {start_epoch}")
+			checkpoint = torch.load(checkpoint_path)
+			model_instance.load_state_dict(checkpoint['model_state_dict'])
+			optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+			scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+			start_epoch = checkpoint['epoch'] + 1
+			best_val_loss = checkpoint['val_loss']
+			print(f"Resuming training from epoch {start_epoch} with best validation loss {best_val_loss:.6f}")
 	else:
-		best_val_loss = float('inf')
+			start_epoch = 0
+			best_val_loss = float('inf')
 
 	#training
 	for epoch in range(start_epoch, epochs):
@@ -130,9 +129,9 @@ def main(checkpoint_path=None):
 		print(f"Epoch {epoch+1}/{epochs}, Train Loss: {avg_train_loss:.6f}, lr: {optimizer.param_groups[0]['lr']:.6f}")
 
 		# Save model 
-		if (epoch + 1) % save_frequency == 0:
-			torch.save(model_instance.state_dict(), f'model_epoch_{epoch+1}.pth')
-			print(f"Model saved at epoch {epoch+1}")
+		# if (epoch + 1) % save_frequency == 0:
+		# 	torch.save(model_instance.state_dict(), f'model_epoch_{epoch+1}.pth')
+		# 	print(f"Model saved at epoch {epoch+1}")
 
 		# Validation
 		if (epoch + 1) % validation_frequency == 0:
@@ -169,8 +168,14 @@ def main(checkpoint_path=None):
 			# Save best model
 			if avg_val_loss < best_val_loss:
 				best_val_loss = avg_val_loss
-				torch.save(model_instance.state_dict(), 'membrane_checkpoint.pth')
-				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
+				torch.save({
+						'model_state_dict': model_instance.state_dict(),
+						'optimizer_state_dict': optimizer.state_dict(),
+						'scheduler_state_dict': scheduler.state_dict(),
+						'epoch': epoch,
+						'val_loss': val_loss
+				}, 'membrane_checkpoint.pth')
+				print(f"Checkpoint saved at epoch {epoch} with validation loss: {val_loss:.6f}")
 
 	# Final evaluation
 	# model_instance.load_state_dict(torch.load('best_model.pth'))
@@ -190,8 +195,8 @@ def main(checkpoint_path=None):
 	# print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	main()
-	# main('model_epoch_700.pth')
+	# main()
+	main('membrane_checkpoint.pth')
 
     
     

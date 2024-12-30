@@ -12,9 +12,8 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
     data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder)
     nodes, vel, elem = data.get_output_split()
 
-    nodes[:, 0] -= 20
-    nodes[:, 1] -= 20
-    nodes[:, 2] -= 20
+    #Translating Node Coordinates 
+    nodes -= 20
 
     mesh = unstructMeshGenerator(nodes=nodes, vel=vel, elem=elem)
     edge_index = mesh.getEdgeAttr(radius_train)
@@ -28,7 +27,7 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
 
         data_inference.append(Data(
             x=data_sample[0],
-            y=data_sample[1],  # Ground truth (optional for evaluation purposes)
+            y=data_sample[1],
             edge_index=edge_index,
             edge_attr=torch.tensor(edge_attr, dtype=torch.float32)
         ))
@@ -36,7 +35,7 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
     inference_loader = DataLoader(data_inference, batch_size=batch_size, shuffle=False)
     return inference_loader
 
-def inference(checkpoint_path, folder='./sample_data/1e6/', radius_train=0.03, batch_size=1, ntsteps=3):
+def inference(checkpoint_path, folder='./sample_data/1e6/', radius_train=0.03, batch_size=1, ntsteps=2):
     # Load the trained model
     node_features = 6
     width = 64
@@ -51,12 +50,14 @@ def inference(checkpoint_path, folder='./sample_data/1e6/', radius_train=0.03, b
         ker_width=ker_width,
         nConvolutions=nLayers,
         nEdgeFeatures=edge_features,
-        ntsteps=ntsteps,
+        ntsteps=ntsteps-1, #-1 for single timestep predictions, 
         time_emb_dim=time_emb_dim
     ).to(device)
 
     # Load the checkpoint
-    model_instance.load_state_dict(torch.load(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path)
+    model_state_dict = checkpoint['model_state_dict']
+    model_instance.load_state_dict(model_state_dict)
     model_instance.eval()
 
     # Prepare the dataloader for inference
@@ -69,7 +70,6 @@ def inference(checkpoint_path, folder='./sample_data/1e6/', radius_train=0.03, b
         for batch in inference_loader:
             batch = batch.to(device)
             out = model_instance(batch)  # Perform forward pass
-            print(out.shape)
             all_predictions.append(out.cpu().numpy())
             all_true_values.append(batch.y.cpu().numpy())  # Optional
 

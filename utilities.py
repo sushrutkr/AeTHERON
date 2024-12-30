@@ -83,6 +83,44 @@ class generateDatasetMembrane:
   def get_output_full(self):
     return self.AllNodes, self.AllVel, self.AllElem
 
+class unstructMeshGenerator():
+  def __init__(self,nodes,vel,elem):
+    self.nodes = nodes #[ntsteps/batches, nNodes, input-output, features]
+    self.elem = elem #[nElem, connections]
+    self.vel = vel
+    self.nNodes = len(self.nodes[0,:,0,0])
+    self.nElem = len(self.elem[:,0])
+
+  def build_grid(self,k):
+    return torch.tensor(self.nodes[k,:,0,:], dtype=torch.float32)
+
+  def getEdgeAttr(self,r):
+    coords = self.nodes[0,:,0,:]
+    pwd = sklearn.metrics.pairwise_distances(coords)
+    self.edge_index = np.vstack(np.where(pwd <= r))
+    self.n_edges = self.edge_index.shape[1]
+    
+    return torch.tensor(self.edge_index, dtype=torch.long)
+  
+  def attributes(self,k):
+    edge_attr = np.zeros((self.n_edges, 12))
+    for n, (i,j) in enumerate(self.edge_index.transpose()):
+        edge_attr[n,:] = np.array([
+                                    self.nodes[k,i,0,0], self.nodes[k,i,0,1], self.nodes[k,i,0,2], 
+                                    self.nodes[k,j,0,0], self.nodes[k,j,0,1], self.nodes[k,j,0,2],
+                                    self.vel[k,i,0,0], self.vel[k,i,0,1], self.vel[k,i,0,2],
+                                    self.vel[k,j,0,1], self.vel[k,j,0,1], self.vel[k,j,0,2]
+                                    ])
+
+    return torch.tensor(edge_attr, dtype=torch.float)
+  
+  def getInputOutput(self,k):
+    input = np.concatenate((self.nodes[k, :, 0, :], self.vel[k, :, 0, :]), axis=1)
+    output = np.concatenate((self.nodes[k, :, 1:, :], self.vel[k, :, 1:, :]), axis=2) #1: is to extract next timestep data
+    output = np.transpose(output, (1, 0, 2))
+
+    return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32)
+  
 class generateDatasetFluid:
   def __init__(self,pathName,splitLen=1):
     self.data = np.load(pathName+'data.npy')
@@ -118,46 +156,6 @@ class generateDatasetFluid:
       self.SplitData[i,:,:] = self.combinedData[i:i+self.split,:]
 
     return self.SplitData
-
-  
-
-class unstructMeshGenerator():
-  def __init__(self,nodes,vel,elem):
-    self.nodes = nodes #[ntsteps/batches, nNodes, input-output, features]
-    self.elem = elem #[nElem, connections]
-    self.vel = vel
-    self.nNodes = len(self.nodes[0,:,0,0])
-    self.nElem = len(self.elem[:,0])
-
-  def build_grid(self,k):
-    return torch.tensor(self.nodes[k,:,0,:], dtype=torch.float32)
-
-  def getEdgeAttr(self,r):
-    coords = self.nodes[0,:,0,:]
-    pwd = sklearn.metrics.pairwise_distances(coords)
-    self.edge_index = np.vstack(np.where(pwd <= r))
-    self.n_edges = self.edge_index.shape[1]
-    
-    return torch.tensor(self.edge_index, dtype=torch.long)
-  
-  def attributes(self,k):
-    edge_attr = np.zeros((self.n_edges, 12))
-    for n, (i,j) in enumerate(self.edge_index.transpose()):
-        edge_attr[n,:] = np.array([
-                                    self.nodes[k,i,0,0], self.nodes[k,i,0,1], self.nodes[k,i,0,2], 
-                                    self.nodes[k,j,0,0], self.nodes[k,j,0,1], self.nodes[k,j,0,2],
-                                    self.vel[k,i,0,0], self.vel[k,i,0,1], self.vel[k,i,0,2],
-                                    self.vel[k,j,0,1], self.vel[k,j,0,1], self.vel[k,j,0,2]
-                                    ])
-
-    return torch.tensor(edge_attr, dtype=torch.float)
-  
-  def getInputOutput(self,k):
-    input = np.concatenate((self.nodes[k, :, 0, :], self.vel[k, :, 0, :]), axis=1)
-    output = np.concatenate((self.nodes[k, :, :, :], self.vel[k, :, :, :]), axis=2)
-    output = np.transpose(output, (1, 0, 2))
-
-    return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32)
   
 class DenseNet(torch.nn.Module):
   def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):

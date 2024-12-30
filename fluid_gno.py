@@ -61,7 +61,7 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	for j in range(num_samples):
 		edge_attr = mesh.attributes(j)
 		
-		# print(torch.tensor(splitData[j,0,:]).view(-1,1), torch.tensor(splitData[j,:,:].transpose()))
+		# print(j, torch.tensor(splitData[j,0,:]).view(-1,1).shape)
 		data_train.append(Data(
 			x = torch.tensor(splitData[j,0,:], dtype=torch.float32).view(-1,1),
 			y = torch.tensor(splitData[j,1,:], dtype=torch.float32).view(-1,1),
