@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.data import Data, DataLoader
-from model.spectralGraphNetwork import *
+from coupled_training.model.coupledGNN import *
 
 def create_simple_graphs():
     # Graph 1: 5 nodes in a line

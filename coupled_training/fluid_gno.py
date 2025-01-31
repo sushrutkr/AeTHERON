@@ -8,7 +8,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from utilities import *
-from model.spectralGraphNetwork import *
+from coupled_training.model.coupledGNN import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 

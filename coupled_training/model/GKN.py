@@ -5,6 +5,7 @@ from torch.nn import Parameter
 from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.inits import reset, uniform
 import torch.nn.functional as F
+from torch.nn.functional import scaled_dot_product_attention
 
 class NNConv(MessagePassing):
   def __init__(self,
@@ -88,3 +89,32 @@ class DenseNet(torch.nn.Module):
       x = l(x)
 
     return x
+  
+class CrossAttention(nn.Module):
+  def __init__(self, edge_dim, node_dim, hidden_dim, num_heads=4):
+    super().__init__()
+    self.num_heads = num_heads
+    self.hidden_dim = hidden_dim
+    
+    # Projections for queries (G2 edges), keys/values (G1 nodes)
+    self.q_proj = nn.Linear(edge_dim, hidden_dim * num_heads)
+    self.k_proj = nn.Linear(node_dim, hidden_dim * num_heads)
+    self.v_proj = nn.Linear(node_dim, hidden_dim * num_heads)
+    self.out_proj = nn.Linear(hidden_dim * num_heads, hidden_dim)
+
+  def forward(self, edge_feats, node_feats):
+    # Project inputs
+    Q = self.q_proj(edge_feats)  # [G2_E, hidden*heads]
+    K = self.k_proj(node_feats)  # [G1_N, hidden*heads]
+    V = self.v_proj(node_feats)  # [G1_N, hidden*heads]
+
+    # Reshape for multi-head attention
+    Q = Q.view(-1, self.num_heads, self.hidden_dim)
+    K = K.view(-1, self.num_heads, self.hidden_dim)
+    V = V.view(-1, self.num_heads, self.hidden_dim)
+
+    # FlashAttention (memory-efficient)
+    attn_out = scaled_dot_product_attention(Q, K, V)
+    attn_out = attn_out.reshape(-1, self.hidden_dim * self.num_heads)
+    
+    return self.out_proj(attn_out)  # [G2_E, hidden]

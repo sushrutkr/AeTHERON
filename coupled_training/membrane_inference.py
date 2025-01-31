@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch_geometric.data import DataLoader
 from utilities import *
-from model.spectralGraphNetwork import *
+from coupled_training.model.coupledGNN import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
