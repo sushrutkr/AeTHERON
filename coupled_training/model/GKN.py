@@ -90,23 +90,27 @@ class DenseNet(torch.nn.Module):
 
     return x
   
-class CrossAttention(nn.Module):
-  def __init__(self, edge_dim, node_dim, hidden_dim, num_heads=4):
+class FlashCrossAttention(nn.Module):
+  def __init__(self, edge_dim, node_dim, hidden_dim=32, num_heads=4):
     super().__init__()
     self.num_heads = num_heads
     self.hidden_dim = hidden_dim
     
-    # Projections for queries (G2 edges), keys/values (G1 nodes)
-    self.q_proj = nn.Linear(edge_dim, hidden_dim * num_heads)
-    self.k_proj = nn.Linear(node_dim, hidden_dim * num_heads)
-    self.v_proj = nn.Linear(node_dim, hidden_dim * num_heads)
+    # Project G2 edge features (fluid) to query
+    self.query_proj = nn.Linear(edge_dim, hidden_dim * num_heads)
+    
+    # Project G1 node features (structure) to key/value
+    self.key_proj = nn.Linear(node_dim, hidden_dim * num_heads)
+    self.value_proj = nn.Linear(node_dim, hidden_dim * num_heads)
+    
+    # Output projection
     self.out_proj = nn.Linear(hidden_dim * num_heads, hidden_dim)
 
   def forward(self, edge_feats, node_feats):
     # Project inputs
-    Q = self.q_proj(edge_feats)  # [G2_E, hidden*heads]
-    K = self.k_proj(node_feats)  # [G1_N, hidden*heads]
-    V = self.v_proj(node_feats)  # [G1_N, hidden*heads]
+    Q = self.query_proj(edge_feats)  # [E, hidden_dim * num_heads]
+    K = self.key_proj(node_feats)    # [N, hidden_dim * num_heads]
+    V = self.value_proj(node_feats)  # [N, hidden_dim * num_heads]
 
     # Reshape for multi-head attention
     Q = Q.view(-1, self.num_heads, self.hidden_dim)
@@ -117,4 +121,5 @@ class CrossAttention(nn.Module):
     attn_out = scaled_dot_product_attention(Q, K, V)
     attn_out = attn_out.reshape(-1, self.hidden_dim * self.num_heads)
     
-    return self.out_proj(attn_out)  # [G2_E, hidden]
+    # Output projection
+    return self.out_proj(attn_out)  # [E, hidden_dim]
