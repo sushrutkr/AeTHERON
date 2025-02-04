@@ -6,9 +6,10 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+from torch_geometric.data import Batch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from utilities import *
-from coupled_training.model.coupledGNN import *
+from model.coupledGNN import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -22,11 +23,13 @@ def set_seed(seed):
 	torch.backends.cudnn.deterministic = True
 	torch.backends.cudnn.benchmark = False
 
-def ijk_to_index(i, j, k, n_y, n_z):
-		return i * (n_y * n_z) + j * n_z + k
+def paired_collate_fn(data_list):
+    batch_memb = Batch.from_data_list([item[0] for item in data_list])
+    batch_fluid = Batch.from_data_list([item[1] for item in data_list])
+    return batch_memb, batch_fluid
 
 def dataloader_memb(folder, radius_train, batch_size,ntsteps=1):
-	data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder)
+	data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder+"1e6/")
 	nodes, vel, elem = data.get_output_split()
 
 	nodes -= 20
@@ -44,28 +47,8 @@ def dataloader_memb(folder, radius_train, batch_size,ntsteps=1):
 	train_indices = indices[num_val_samples:]
 
 	mesh = unstructMeshGenerator(nodes=nodes, vel=vel, elem=elem)
-	edge_index = mesh.getEdgeAttr(radius_train)
 
-	data_train = []
-	for j in range(num_samples):
-			grid = mesh.build_grid(j)
-			edge_attr = mesh.attributes(j)
-			data_sample = mesh.getInputOutput(j)
-
-			data_train.append(Data(
-					x=data_sample[0],
-					y=data_sample[1],
-					edge_index=edge_index,
-					edge_attr=torch.tensor(edge_attr, dtype=torch.float32)
-			))
-
-
-	print('train grid', grid.shape, 'edge_index', edge_index.shape, 'edge_attr', edge_attr.shape)
-
-	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True)
-	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False)
-
-	return train_loader, val_loader, scaler
+	return mesh, scaler
 
 def dataloader_flow(folder, radius_train, batch_size, ntsteps=1):
 	"""
@@ -94,27 +77,55 @@ def dataloader_flow(folder, radius_train, batch_size, ntsteps=1):
 	mesh = CartesianMeshGenerator(real_space=[[0, 1.5],[0, 0.93],[0, 1.0]],mesh_size=[combinedData.shape[1], 
 																																										combinedData.shape[2],
 																																										combinedData.shape[3]],data=splitData)
-	grid = mesh.get_grid()
-	edge_index = mesh.ball_connectivity(radius_train)
 
+	return mesh, splitData, scaler
+
+def dataloader(folder, radius_train, batch_size, ntsteps=1):
+	num_samples = 100
+	indices = np.arange(num_samples)
+	np.random.shuffle(indices)
+	val_split = 0.2
+	num_val_samples = int(num_samples * val_split)
+	val_indices = indices[:num_val_samples]
+	train_indices = indices[num_val_samples:]
+
+	memb_mesh, memb_scaler = dataloader_memb(folder, radius_train, batch_size, ntsteps)
+	flow_mesh, flow_data, flow_scaler = dataloader_flow(folder, radius_train, batch_size, ntsteps)
+
+	edge_index = {
+		"memb"	:	memb_mesh.getEdgeAttr(radius_train),
+		"flow"	:	flow_mesh.ball_connectivity(radius_train)
+	}
+
+	scaler = {
+		"memb"	:	memb_scaler,
+		"flow"	:	flow_scaler
+	}
+	
 	data_train = []
+
 	for j in range(num_samples):
-		edge_attr = mesh.attributes(j)
+		edge_attr_memb = memb_mesh.attributes(j)
+		edge_attr_flow = flow_mesh.attributes(j)
+		data_sample = memb_mesh.getInputOutput(j)
+
+		data_train.append((
+			Data(
+				x=torch.tensor(data_sample[0], dtype=torch.float32, requires_grad=True),
+				y=torch.tensor(data_sample[1], dtype=torch.float32, requires_grad=True),
+				edge_index=edge_index['memb'],
+				edge_attr=torch.tensor(edge_attr_memb, dtype=torch.float32, requires_grad=True),
+				),
+
+			Data(
+				x=torch.tensor(flow_data[j,0,:], dtype=torch.float32, requires_grad=True).view(-1,1),
+				y=torch.tensor(flow_data[j,1,:], dtype=torch.float32, requires_grad=True).view(-1,1),
+				edge_index=edge_index['flow'],
+				edge_attr=torch.tensor(edge_attr_flow, dtype=torch.float32, requires_grad=True)
+				)))
 		
-		# print(j, torch.tensor(splitData[j,0,:]).view(-1,1).shape)
-		data_train.append(Data(
-			x = torch.tensor(splitData[j,0,:], dtype=torch.float32).view(-1,1),
-			y = torch.tensor(splitData[j,1,:], dtype=torch.float32).view(-1,1),
-			# y=torch.tensor(splitData[j,:,:].transpose(), dtype=torch.float32),
-			edge_index = edge_index,
-			edge_attr = torch.tensor(edge_attr, dtype=torch.float32)
-		))
-
-
-	print('train grid', grid.shape, 'edge_index', edge_index.shape, 'edge_attr', edge_attr.shape)
-
-	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True)
-	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False)
+	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True, collate_fn=paired_collate_fn)
+	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False, collate_fn=paired_collate_fn)
 
 	return train_loader, val_loader, scaler
 
@@ -124,24 +135,24 @@ def main(checkpoint_path=None):
 	# Parameters
 	params_network = {
 		'memb_net': {
-			'inNodeFeatures'				: 10,
-			'nNodeFeatEmbedding'		: 20,
-			'nEdgeFeatures'					: 5,
-			'ker_width'							: 3,
+			'inNodeFeatures'				: 6,
+			'nNodeFeatEmbedding'		: 16,
+			'nEdgeFeatures'					: 12,
+			'ker_width'							: 8,
 			'nlayers'								: 2
 		},
 		'flow_net': {
-			'inNodeFeatures'				: 15,
-			'nNodeFeatEmbedding'		: 25,
-			'nEdgeFeatures'					: 10,
+			'inNodeFeatures'				: 1,
+			'nNodeFeatEmbedding'		: 8,
+			'nEdgeFeatures'					: 8,
 			'ker_width'							: 4,
 			'nlayers'								: 2
 		},
-		'attn_dim'								: 4
+		'attn_dim'								: 16
 	}
 	
 	params_training = {
-		'epochs' 								: 10000,
+		'epochs' 								: 1,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
@@ -150,9 +161,9 @@ def main(checkpoint_path=None):
 	}
 
 	params_data = {
-		'location' 			: './sample_data/',
+		'location' 			: '../sample_data/',
 		'radius_train' 	: 0.02,
-		'batch_size' 		: 6,
+		'batch_size' 		: 1,
 		'ntsteps' 			: 2,
 	}
 
@@ -163,6 +174,8 @@ def main(checkpoint_path=None):
 																							  params_data['radius_train'], 
 																								params_data['batch_size'], 
 																								params_data['ntsteps'])
+	
+
 	print("----Loaded Data----")
 
 	# Initialize model
@@ -194,12 +207,18 @@ def main(checkpoint_path=None):
 	for epoch in range(start_epoch, params_training['epochs']):
 		model_instance.train()
 		train_loss = 0.0
-		for batch in train_loader:
+		for memb_batch, flow_batch in train_loader:
 			optimizer.zero_grad()
-			batch = batch.to(device)
-			out = model_instance(batch)
-			loss = criterion(out.view(-1, 1), batch.y.view(-1, 1))
+			memb_batch = memb_batch.to(device)
+			flow_batch = flow_batch.to(device)
+
+			out_memb, out_flow = model_instance(memb_batch, flow_batch)
+
+			loss_memb = criterion(out_memb.view(-1, 1), memb_batch.y.view(-1, 1))
+			loss_flow = criterion(out_flow.view(-1, 1), flow_batch.y.view(-1, 1))
+			loss = loss_memb + loss_flow 
 			loss.backward()
+
 			optimizer.step()
 			train_loss += loss.item()
 		
@@ -274,5 +293,5 @@ def main(checkpoint_path=None):
 	# print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	# main()
-	main('model_epoch_1000.pth')
+	main()
+	# main('model_epoch_1000.pth')

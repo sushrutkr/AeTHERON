@@ -16,36 +16,35 @@ class CoupledGNO(nn.Module):
     super(CoupledGNO, self).__init__()
     
     self.layer_memb = GNO(
-      params['memb']['inNodeFeatures'], 
-      params['memb']['nNodeFeatEmbedding'], 
-      params['memb']['nEdgeFeatures'], 
-      params['memb']['ker_width'],
-      params['memb']['nlayers']
+      params['memb_net']['inNodeFeatures'], 
+      params['memb_net']['nNodeFeatEmbedding'], 
+      params['memb_net']['nEdgeFeatures'], 
+      params['memb_net']['ker_width'],
+      params['memb_net']['nlayers']
       )
     
     self.layer_flow = GNO(
-      params['flow']['inNodeFeatures'], 
-      params['flow']['nNodeFeatEmbedding'], 
-      params['flow']['nEdgeFeatures']+params['attn_dim'], 
-      params['flow']['ker_width'],
-      params['flow']['nlayers']
+      params['flow_net']['inNodeFeatures'], 
+      params['flow_net']['nNodeFeatEmbedding'], 
+      params['flow_net']['nEdgeFeatures']+params['attn_dim'], 
+      params['flow_net']['ker_width'],
+      params['flow_net']['nlayers']
       )
     
     self.crossAttention = FlashCrossAttention(
-      params['memb']['nNodeFeatEmbedding'], 
-      params['flow']['nEdgeFeatures'], 
+      params['memb_net']['nNodeFeatEmbedding'], 
+      params['flow_net']['nEdgeFeatures'], 
       hidden_dim=params['attn_dim']
       )
     
-  def forward(self, data):
-    x, edge_index, edge_attr, batch, ptr = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr
-    # print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([10542, 38]) torch.Size([71562, 12]) torch.Size([2, 71562])
+  def forward(self, data_memb, data_flow):
 
-    x_memb = self.layer_memb(x, edge_index, edge_attr)
-    cross_attn_output = self.crossAttention(edge_attr, x_memb)
-    x_flow = self.layer_flow(x, edge_index, cross_attn_output)
+    # x_memb = self.layer_memb(data_memb.x, data_memb.edge_index, data_memb.edge_attr)
+    # cross_attn_output = self.crossAttention(data_flow.edge_attr, data_memb.x)
+    # x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, cross_attn_output)
 
-    return x_memb, x_flow
+    # return x_memb, x_flow
+    return data_memb.x, data_flow.x
   
 
 class GNO(nn.Module):

@@ -112,14 +112,14 @@ class unstructMeshGenerator():
                                     self.vel[k,j,0,1], self.vel[k,j,0,1], self.vel[k,j,0,2]
                                     ])
 
-    return torch.tensor(edge_attr, dtype=torch.float)
+    return edge_attr
   
   def getInputOutput(self,k):
     input = np.concatenate((self.nodes[k, :, 0, :], self.vel[k, :, 0, :]), axis=1)
     output = np.concatenate((self.nodes[k, :, 1:, :], self.vel[k, :, 1:, :]), axis=2) #1: is to extract next timestep data
     output = np.transpose(output, (1, 0, 2))
 
-    return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32)
+    return input, output
   
 class generateDatasetFluid:
   def __init__(self,pathName,splitLen=1):
@@ -254,4 +254,4 @@ class CartesianMeshGenerator(object):
 
     edge_attr = np.concatenate((grid_i, grid_j, data_i, data_j), axis=1)
 
-    return torch.tensor(edge_attr, dtype=torch.float32)
+    return edge_attr
