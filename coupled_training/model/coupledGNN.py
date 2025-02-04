@@ -32,19 +32,19 @@ class CoupledGNO(nn.Module):
       )
     
     self.crossAttention = FlashCrossAttention(
-      params['memb_net']['nNodeFeatEmbedding'], 
+      params['memb_net']['inNodeFeatures'], 
       params['flow_net']['nEdgeFeatures'], 
       hidden_dim=params['attn_dim']
       )
     
   def forward(self, data_memb, data_flow):
 
-    # x_memb = self.layer_memb(data_memb.x, data_memb.edge_index, data_memb.edge_attr)
-    # cross_attn_output = self.crossAttention(data_flow.edge_attr, data_memb.x)
-    # x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, cross_attn_output)
+    x_memb = self.layer_memb(data_memb.x, data_memb.edge_index, data_memb.edge_attr)
+    cross_attn_output = self.crossAttention(data_flow.edge_attr, data_memb.x)
+    flow_edge_attr = torch.concat((cross_attn_output, data_flow.edge_attr),axis=1)
+    x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, flow_edge_attr)
 
-    # return x_memb, x_flow
-    return data_memb.x, data_flow.x
+    return x_memb, x_flow
   
 
 class GNO(nn.Module):
@@ -73,4 +73,6 @@ class GNO(nn.Module):
       x = F.relu(self.layer(x, edge_index, edge_attr))
 
     x = self.inv_embedding(x)
+
+    return x
 

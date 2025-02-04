@@ -91,35 +91,31 @@ class DenseNet(torch.nn.Module):
     return x
   
 class FlashCrossAttention(nn.Module):
-  def __init__(self, edge_dim, node_dim, hidden_dim=32, num_heads=4):
+  def __init__(self, node_dim, edge_dim, hidden_dim=32):
     super().__init__()
-    self.num_heads = num_heads
     self.hidden_dim = hidden_dim
     
     # Project G2 edge features (fluid) to query
-    self.query_proj = nn.Linear(edge_dim, hidden_dim * num_heads)
+    self.query_proj = nn.Linear(edge_dim, hidden_dim)
     
     # Project G1 node features (structure) to key/value
-    self.key_proj = nn.Linear(node_dim, hidden_dim * num_heads)
-    self.value_proj = nn.Linear(node_dim, hidden_dim * num_heads)
+    self.key_proj = nn.Linear(node_dim, hidden_dim)
+    self.value_proj = nn.Linear(node_dim, hidden_dim)
     
     # Output projection
-    self.out_proj = nn.Linear(hidden_dim * num_heads, hidden_dim)
+    # self.out_proj = nn.Linear(hidden_dim, edge_dim)
 
   def forward(self, edge_feats, node_feats):
-    # Project inputs
-    Q = self.query_proj(edge_feats)  # [E, hidden_dim * num_heads]
-    K = self.key_proj(node_feats)    # [N, hidden_dim * num_heads]
-    V = self.value_proj(node_feats)  # [N, hidden_dim * num_heads]
 
-    # Reshape for multi-head attention
-    Q = Q.view(-1, self.num_heads, self.hidden_dim)
-    K = K.view(-1, self.num_heads, self.hidden_dim)
-    V = V.view(-1, self.num_heads, self.hidden_dim)
+    # Project inputs
+    Q = self.query_proj(edge_feats)  # [E, hidden_dim]
+    K = self.key_proj(node_feats)    # [N, hidden_dim]
+    V = self.value_proj(node_feats)  # [N, hidden_dim]
 
     # FlashAttention (memory-efficient)
     attn_out = scaled_dot_product_attention(Q, K, V)
-    attn_out = attn_out.reshape(-1, self.hidden_dim * self.num_heads)
     
     # Output projection
-    return self.out_proj(attn_out)  # [E, hidden_dim]
+    # return self.out_proj(attn_out)  # [E, edge_dim]
+
+    return attn_out  # [E, hidden_dim]

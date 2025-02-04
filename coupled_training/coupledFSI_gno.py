@@ -148,11 +148,11 @@ def main(checkpoint_path=None):
 			'ker_width'							: 4,
 			'nlayers'								: 2
 		},
-		'attn_dim'								: 16
+		'attn_dim'								: 16 #found 16 to be a better value compared to 8, 24, 32
 	}
 	
 	params_training = {
-		'epochs' 								: 1,
+		'epochs' 								: 10,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
@@ -189,6 +189,8 @@ def main(checkpoint_path=None):
 																						 step_size=params_training['scheduler_step'], 
 																						 gamma=params_training['scheduler_gamma'])
 	criterion = torch.nn.MSELoss()
+
+	model_instance = torch.compile(model_instance)
 
 	# Initialize training
 	start_epoch = 0
