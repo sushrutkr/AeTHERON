@@ -32,19 +32,9 @@ def dataloader_memb(folder, radius_train, batch_size,ntsteps=1):
 	data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder+"1e6/")
 	nodes, vel, elem = data.get_output_split()
 
-	nodes -= 20
+	nodes -= 20 #since 20 is center of rotation
 
 	scaler = StandardScaler()
-
-	print("Shape of nodes, vel and elem : ", nodes.shape, vel.shape, elem.shape)
-	num_samples = nodes.shape[0]
-	print("Num of samples batches, timesteps per sample : ", num_samples, nodes.shape[2])
-	indices = np.arange(num_samples)
-	np.random.shuffle(indices)
-	val_split = 0.2
-	num_val_samples = int(num_samples * val_split)
-	val_indices = indices[:num_val_samples]
-	train_indices = indices[num_val_samples:]
 
 	mesh = unstructMeshGenerator(nodes=nodes, vel=vel, elem=elem)
 
@@ -59,24 +49,16 @@ def dataloader_flow(folder, radius_train, batch_size, ntsteps=1):
 	"""
 	data = generateDatasetFluid(folder,splitLen=ntsteps)
 
-	scaler = MinMaxScaler(feature_range=(0,1))
 	scaler, vorticity = data.scaling(scaler)
 	splitData = data.splitDataset()
 	print(splitData.shape)
 	combinedData = data.combined_data()
 
-	num_samples = splitData.shape[0]
-	print("Num of samples batches, timesteps per sample : ", num_samples, splitData.shape[1])
-	indices = np.arange(num_samples)
-	np.random.shuffle(indices)
-	val_split = 0.2
-	num_val_samples = int(num_samples * val_split)
-	val_indices = indices[:num_val_samples]
-	train_indices = indices[num_val_samples:]
-
-	mesh = CartesianMeshGenerator(real_space=[[0, 1.5],[0, 0.93],[0, 1.0]],mesh_size=[combinedData.shape[1], 
-																																										combinedData.shape[2],
-																																										combinedData.shape[3]],data=splitData)
+	mesh = RectilinearMeshGenerator(
+		real_space=data.get_grid_coords(),
+		reference_coords = [20,20,20],
+		data=splitData
+	)
 
 	return mesh, splitData, scaler
 
@@ -88,6 +70,9 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	num_val_samples = int(num_samples * val_split)
 	val_indices = indices[:num_val_samples]
 	train_indices = indices[num_val_samples:]
+	with open('train_val_indices.csv', 'w') as f:
+		f.write(f'Train indices: {train_indices}\n')
+		f.write(f'Val indices: {val_indices}\n')
 
 	memb_mesh, memb_scaler = dataloader_memb(folder, radius_train, batch_size, ntsteps)
 	flow_mesh, flow_data, flow_scaler = dataloader_flow(folder, radius_train, batch_size, ntsteps)
@@ -112,7 +97,7 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 		data_train.append((
 			Data(
 				x=torch.tensor(data_sample[0], dtype=torch.float32, requires_grad=True),
-				y=torch.tensor(data_sample[1], dtype=torch.float32, requires_grad=True),
+				y=torch.tensor(data_sample[1][0], dtype=torch.float32, requires_grad=True),
 				edge_index=edge_index['memb'],
 				edge_attr=torch.tensor(edge_attr_memb, dtype=torch.float32, requires_grad=True),
 				),
@@ -152,18 +137,18 @@ def main(checkpoint_path=None):
 	}
 	
 	params_training = {
-		'epochs' 								: 10,
+		'epochs' 								: 2000,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
-		'validation_frequency' 	: 100,
+		'validation_frequency' 	: 1,
 		'save_frequency' 				: 100
 	}
 
 	params_data = {
 		'location' 			: '../sample_data/',
-		'radius_train' 	: 0.02,
-		'batch_size' 		: 1,
+		'radius_train' 	: 0.01,
+		'batch_size' 		: 2,
 		'ntsteps' 			: 2,
 	}
 
@@ -243,19 +228,25 @@ def main(checkpoint_path=None):
 		if (epoch + 1) % params_training['validation_frequency'] == 0:
 			model_instance.eval()
 			val_loss = 0.0
-			all_predictions = []
-			all_true_values = []
 			with torch.no_grad():
-				for batch in val_loader:
-					batch = batch.to(device)
-					out = model_instance(batch)
-					loss = criterion(out.view(-1, 1), batch.y.view(-1, 1))
+				for memb_batch, flow_batch in val_loader:
+					memb_batch = memb_batch.to(device)
+					flow_batch = flow_batch.to(device)
+					out_memb, out_flow = model_instance(memb_batch, flow_batch)
+
+					loss_memb = criterion(out_memb.view(-1, 1), memb_batch.y.view(-1, 1))
+					loss_flow = criterion(out_flow.view(-1, 1), flow_batch.y.view(-1, 1))
+					loss = loss_memb + loss_flow 
 					val_loss += loss.item()
-					all_predictions.append(out.cpu().numpy())
-					all_true_values.append(batch.y.cpu().numpy())
 
 			avg_val_loss = val_loss / len(val_loader)
 			print(f"Epoch {epoch+1}/{params_training['epochs']}, Validation Loss: {avg_val_loss:.6f}")
+
+			# Save best model
+			if avg_val_loss < best_val_loss:
+				best_val_loss = avg_val_loss
+				torch.save(model_instance.state_dict(), 'best_model.pth')
+				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
 
 			# Calculate MAE and RMSE
 	# 		all_predictions = np.concatenate(all_predictions, axis=0)
@@ -271,29 +262,6 @@ def main(checkpoint_path=None):
 	# 		print(f"Validation MAE: {mae:.4f}")
 	# 		print(f"Validation RMSE: {rmse:.4f}")
 
-			# Save best model
-			if avg_val_loss < best_val_loss:
-				best_val_loss = avg_val_loss
-				torch.save(model_instance.state_dict(), 'best_model.pth')
-				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
-
-	# # Final evaluation
-	# model_instance.load_state_dict(torch.load('best_model.pth'))
-	# model_instance.eval()
-	# all_predictions = []
-	# with torch.no_grad():
-	# 	for batch in val_loader:
-	# 		batch = batch.to(device)
-	# 		out = model_instance(batch)
-	# 		all_predictions.append(out.cpu().numpy())
-
-	# all_predictions = np.concatenate(all_predictions, axis=0)
-	# predictions_original_scale = scaler.inverse_transform(all_predictions.reshape(-1, 1))
-	# predictions_final = all_predictions#predictions_original_scale.reshape(-1, 30, 60).transpose(0, 2, 1)
-
-	# np.save("predictions.npy", predictions_final)
-	# print("Predictions saved as 'predictions.npy'")
-
 if __name__ == "__main__":
 	main()
-	# main('model_epoch_1000.pth')
+	# main('model_epoch_200.pth')

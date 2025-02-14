@@ -26,7 +26,7 @@ class CoupledGNO(nn.Module):
     self.layer_flow = GNO(
       params['flow_net']['inNodeFeatures'], 
       params['flow_net']['nNodeFeatEmbedding'], 
-      params['flow_net']['nEdgeFeatures']+params['attn_dim'], 
+      params['flow_net']['nEdgeFeatures'], 
       params['flow_net']['ker_width'],
       params['flow_net']['nlayers']
       )
@@ -41,8 +41,8 @@ class CoupledGNO(nn.Module):
 
     x_memb = self.layer_memb(data_memb.x, data_memb.edge_index, data_memb.edge_attr)
     cross_attn_output = self.crossAttention(data_flow.edge_attr, data_memb.x)
-    flow_edge_attr = torch.concat((cross_attn_output, data_flow.edge_attr),axis=1)
-    x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, flow_edge_attr)
+    # flow_edge_attr = torch.concat((cross_attn_output, data_flow.edge_attr),axis=1)
+    x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, cross_attn_output)
 
     return x_memb, x_flow
   

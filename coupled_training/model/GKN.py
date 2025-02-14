@@ -103,7 +103,7 @@ class FlashCrossAttention(nn.Module):
     self.value_proj = nn.Linear(node_dim, hidden_dim)
     
     # Output projection
-    # self.out_proj = nn.Linear(hidden_dim, edge_dim)
+    self.out_proj = nn.Linear(hidden_dim, edge_dim)
 
   def forward(self, edge_feats, node_feats):
 
@@ -116,6 +116,6 @@ class FlashCrossAttention(nn.Module):
     attn_out = scaled_dot_product_attention(Q, K, V)
     
     # Output projection
-    # return self.out_proj(attn_out)  # [E, edge_dim]
+    return self.out_proj(attn_out)  # [E, edge_dim]
 
-    return attn_out  # [E, hidden_dim]
+    # return attn_out  # [E, hidden_dim]

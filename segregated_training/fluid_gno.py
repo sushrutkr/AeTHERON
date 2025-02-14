@@ -32,29 +32,33 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	3. Split into input-output pair
 	4. Split into train and validation index
 	"""
-	data = generateDatasetFluid(folder,splitLen=ntsteps)
+	data = generateDatasetFluid(folder, splitLen=ntsteps)
 
-	
-
-	scaler = MinMaxScaler(feature_range=(0,1))
+	# Scale data using MinMaxScaler (same as in training)
+	scaler = MinMaxScaler(feature_range=(0, 1))
 	scaler, vorticity = data.scaling(scaler)
 	splitData = data.splitDataset()
-	print(splitData.shape)
 	combinedData = data.combined_data()
 
 	num_samples = splitData.shape[0]
 	print("Num of samples batches, timesteps per sample : ", num_samples, splitData.shape[1])
 	indices = np.arange(num_samples)
 	np.random.shuffle(indices)
-	val_split = 0.2
+	val_split = 0.3
 	num_val_samples = int(num_samples * val_split)
 	val_indices = indices[:num_val_samples]
 	train_indices = indices[num_val_samples:]
 
-	mesh = CartesianMeshGenerator(real_space=[[0, 1.5],[0, 0.93],[0, 1.0]],mesh_size=[combinedData.shape[1], 
-																																									  combinedData.shape[2],
-																																										combinedData.shape[3]],data=splitData)
-	grid = mesh.get_grid()
+	with open('train_val_indices.csv', 'w') as f:
+		f.write(f'Train indices: {train_indices}\n')
+		f.write(f'Val indices: {val_indices}\n')
+
+	mesh = RectilinearMeshGenerator(
+		real_space=data.get_grid_coords(),
+		reference_coords = [20,20,20],
+		data=splitData
+	)
+
 	edge_index = mesh.ball_connectivity(radius_train)
 
 	data_train = []
