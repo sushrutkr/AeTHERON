@@ -22,16 +22,6 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
 
 	num_samples = splitData.shape[0]
 	print("Num of samples batches, timesteps per sample : ", num_samples, splitData.shape[1])
-	indices = np.arange(num_samples)
-	np.random.shuffle(indices)
-	val_split = 0.3
-	num_val_samples = int(num_samples * val_split)
-	val_indices = indices[:num_val_samples]
-	train_indices = indices[num_val_samples:]
-
-	with open('train_val_indices.csv', 'w') as f:
-		f.write(f'Train indices: {train_indices}\n')
-		f.write(f'Val indices: {val_indices}\n')
 
 	mesh = RectilinearMeshGenerator(
 		real_space=data.get_grid_coords(),
@@ -54,7 +44,7 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
 	inference_loader = DataLoader(data_inference , batch_size=batch_size, shuffle=False)
 	return inference_loader, scaler
 
-def inference(checkpoint_path, folder='../sample_data/', radius_train=0.08, batch_size=1, ntsteps=2):
+def inference(checkpoint_path, folder='../sample_data/', radius_train=0.1, batch_size=1, ntsteps=2):
 	"""
 	Perform inference using the trained model.
 	"""
@@ -104,5 +94,5 @@ def inference(checkpoint_path, folder='../sample_data/', radius_train=0.08, batc
 	
 
 if __name__ == "__main__":
-	checkpoint_path = 'fluid_checkpoint_old.pth'  # Path to the saved model checkpoint
+	checkpoint_path = 'best_model.pth'  # Path to the saved model checkpoint
 	inference(checkpoint_path)

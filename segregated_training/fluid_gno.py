@@ -75,8 +75,6 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 		))
 
 
-	print('train grid', grid.shape, 'edge_index', edge_index.shape, 'edge_attr', edge_attr.shape)
-
 	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True)
 	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False)
 
@@ -86,14 +84,14 @@ def main(checkpoint_path=None):
 	set_seed(42)
 
 	# Parameters
-	radius_train = 0.02
+	radius_train = 0.1
 	batch_size = 6
 	width = 8  # uplifting node_features+time_emb_dim to wwidth
 	ker_width = 4
 	edge_features = 8
 	node_features = 1
 	nLayers = 2
-	epochs = 10000
+	epochs = 5000
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5
@@ -106,7 +104,7 @@ def main(checkpoint_path=None):
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 	# Load data
-	train_loader, val_loader, scaler = dataloader('./sample_data/', radius_train, batch_size, ntsteps)
+	train_loader, val_loader, scaler = dataloader('../sample_data/', radius_train, batch_size, ntsteps)
 	print("----Loaded Data----")
 
 	# Initialize model
@@ -214,5 +212,5 @@ def main(checkpoint_path=None):
 	# print("Predictions saved as 'predictions.npy'")
 
 if __name__ == "__main__":
-	# main()
-	main('model_epoch_1000.pth')
+	main()
+	# main('model_epoch_1000.pth')
