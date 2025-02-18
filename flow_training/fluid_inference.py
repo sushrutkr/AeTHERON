@@ -44,7 +44,7 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
 	inference_loader = DataLoader(data_inference , batch_size=batch_size, shuffle=False)
 	return inference_loader, scaler
 
-def inference(checkpoint_path, folder='../sample_data/', radius_train=0.1, batch_size=1, ntsteps=2):
+def inference(checkpoint_path, folder='../sample_data/', radius_train=0.05, batch_size=1, ntsteps=2):
 	"""
 	Perform inference using the trained model.
 	"""
