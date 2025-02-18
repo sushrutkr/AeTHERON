@@ -60,7 +60,59 @@ class NNConv(MessagePassing):
   def __repr__(self):
     return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
                                 self.out_channels)
-    
+
+class MembraneGraphNet(MessagePassing):
+  def __init__(self,
+                in_channels,
+                out_channels,
+                phi,
+                gamma,
+                beta,
+                aggr='add',
+                root_weight=True,
+                bias=True,
+                **kwargs):
+    super(MembraneGraphNet, self).__init__(aggr=aggr, **kwargs)
+
+    self.in_channels = in_channels
+    self.out_channels = out_channels
+
+    self.phi = phi
+    self.gamma = gamma
+    self.beta = beta
+
+    self.aggr = aggr
+
+    if root_weight:
+        self.root = Parameter(torch.Tensor(in_channels, out_channels))
+    else:
+        self.register_parameter('root', None)
+
+    if bias:
+        self.bias = Parameter(torch.Tensor(out_channels))
+    else:
+        self.register_parameter('bias', None)
+
+    self.reset_parameters()
+
+  def reset_parameters(self):
+    reset(self.phi)
+    reset(self.gamma)
+    # reset(self.beta)
+    size = self.in_channels
+    uniform(size, self.root)
+    uniform(size, self.bias)
+
+  def forward(self, x, edge_index, edge_attr):
+    return self.propagate(edge_index, x=x, edge_attr=edge_attr)
+
+  def message(self, x_i, x_j, edge_attr):
+    return self.phi(torch.cat([x_i, x_j, edge_attr]),axis=-1)
+
+  def update(self, aggr_out, x):
+    return self.gamma(torch.cat([x, aggr_out], dim=-1))
+
+
 class DenseNet(torch.nn.Module):
   def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):
     super(DenseNet, self).__init__()

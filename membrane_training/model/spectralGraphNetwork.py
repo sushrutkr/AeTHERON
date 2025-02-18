@@ -22,13 +22,16 @@ class SpecGNO(nn.Module):
     self.inNodeFeatures = inNodeFeatures
 
     #Projecting node feature to higher dimensional embeddings
-    self.feature_embedding = nn.Linear(inNodeFeatures+time_emb_dim, nNodeFeatEmbedding)
+    self.node_encoder = nn.Linear(inNodeFeatures+time_emb_dim, nNodeFeatEmbedding)
+    self.edge_encoder = nn.Linear(nEdgeFeatures, nNodeFeatEmbedding)
 
     #initialize kernel
-    kernel = DenseNet([nEdgeFeatures, ker_width, ker_width, nNodeFeatEmbedding**2], torch.nn.ReLU)
+    phi = nn.Sequential(nn.Linear(3*nNodeFeatEmbedding,nNodeFeatEmbedding), nn.ReLU())
+    gamma = nn.Sequential(nn.Linear(2*nNodeFeatEmbedding, nNodeFeatEmbedding), nn.ReLU())
+    beta = nn.Sequential(nn.Linear(nNodeFeatEmbedding,nNodeFeatEmbedding), nn.ReLU())
 
     #initializeGNO
-    self.layer = NNConv(nNodeFeatEmbedding, nNodeFeatEmbedding, kernel, aggr='mean')
+    self.layer = MembraneGraphNet(nNodeFeatEmbedding, nNodeFeatEmbedding, phi=phi, gamma=gamma, beta=beta, aggr='mean')
 
     #initialize spectral layers for features, here we might not need node update
     self.time_conv_modules = nn.ModuleList() 
@@ -37,8 +40,9 @@ class SpecGNO(nn.Module):
       self.time_conv_modules.append(TimeConv(nNodeFeatEmbedding, nNodeFeatEmbedding, nModesFNO, activation, with_nin=False))
       self.time_conv_x_modules.append(TimeConv_x(2, 2, num_modes, activation, with_nin=False))
 
+
     #bringing higher-dimensional embedding to original feature dimension
-    self.inv_embedding = nn.Linear(nNodeFeatEmbedding, inNodeFeatures)
+    self.node_decoder = nn.Linear(nNodeFeatEmbedding, inNodeFeatures)
     
   def forward(self, data):
     x, edge_index, edge_attr, batch, ptr = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr
@@ -62,14 +66,15 @@ class SpecGNO(nn.Module):
 
     # print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([10542, 38]) torch.Size([71562, 12]) torch.Size([2, 71562])
 
-    x = self.feature_embedding(x)
+    x = self.node_encoder(x)
+    edge_attr = self.edge_encoder(edge_attr)
 
     for i in range(self.nConvolutions):
       # edge_attr = self.time_conv_modules[i](edge_attr)
       # x = self.time_conv_modules[i](x.view(self.ntsteps, num_nodes, self.nNodeFeatEmbedding)).view(self.ntsteps*num_nodes, self.nNodeFeatEmbedding)
       x = F.relu(self.layer(x, edge_index, edge_attr))
 
-    x = self.inv_embedding(x)
+    x = self.node_decoder(x)
 
     x = x.view(self.ntsteps, num_graphs, num_nodes//num_graphs, self.inNodeFeatures)
     x = x.transpose(0, 1).reshape(-1, num_nodes // num_graphs, self.inNodeFeatures)
