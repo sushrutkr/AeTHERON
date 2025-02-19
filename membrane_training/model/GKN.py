@@ -107,10 +107,10 @@ class MembraneGraphNet(MessagePassing):
     return self.propagate(edge_index, x=x, edge_attr=edge_attr)
 
   def message(self, x_i, x_j, edge_attr):
-    return self.phi(torch.cat([x_i, x_j, edge_attr]),axis=-1)
+    return self.phi(torch.cat([x_i, x_j, edge_attr],axis=-1))
 
   def update(self, aggr_out, x):
-    return self.gamma(torch.cat([x, aggr_out], dim=-1))
+    return self.gamma(torch.cat([x, aggr_out], axis=-1))
 
 
 class DenseNet(torch.nn.Module):

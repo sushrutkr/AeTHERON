@@ -8,78 +8,79 @@ from model.spectralGraphNetwork import *
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
-    # Load dataset for inference
-    data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder)
-    nodes, vel, elem = data.get_output_split()
+	data = generateDatasetMembrane(ninit=1000, nend=2000, ngap=10, splitLen=ntsteps, folder=folder)
+	nodes, vel, forceExt, elem, pointMass, bc_nodes = data.get_output_split()
 
-    #Translating Node Coordinates 
-    nodes -= 20
+	nodes -= 20
 
-    mesh = unstructMeshGenerator(nodes=nodes, vel=vel, elem=elem)
-    edge_index = mesh.getEdgeAttr(radius_train)
+	print("Shape of nodes, vel and elem : ", nodes.shape, vel.shape, elem.shape)
+	num_samples = nodes.shape[0]
 
-    data_inference = []
-    num_samples = nodes.shape[0]
-    for j in range(num_samples):
-        grid = mesh.build_grid(j)
-        edge_attr = mesh.attributes(j)
-        data_sample = mesh.getInputOutput(j)
+	mesh = unstructMeshGenerator(nodes=nodes, vel=vel, forceExt=forceExt, pointMass=pointMass, elem=elem, bc_nodes=bc_nodes)
+	edge_index = mesh.getEdgeAttr(radius_train)
 
-        data_inference.append(Data(
-            x=data_sample[0],
-            y=data_sample[1],
-            edge_index=edge_index,
-            edge_attr=torch.tensor(edge_attr, dtype=torch.float32)
-        ))
+	data_inference = []
+	for j in range(num_samples):
+			grid = mesh.build_grid(j)
+			edge_attr = mesh.attributes(j)
+			data_sample = mesh.getInputOutput(j)
 
-    inference_loader = DataLoader(data_inference, batch_size=batch_size, shuffle=False)
-    return inference_loader
+			data_inference.append(Data(
+					x=data_sample[0],
+					y=data_sample[1],
+					edge_index=edge_index,
+					edge_attr=torch.tensor(edge_attr, dtype=torch.float32),
+					bc = data_sample[2]
+			))
 
-def inference(checkpoint_path, folder='./sample_data/1e6/', radius_train=0.03, batch_size=1, ntsteps=2):
-    # Load the trained model
-    node_features = 6
-    width = 64
-    ker_width = 8
-    edge_features = 12
-    nLayers = 2
-    time_emb_dim = 32
+	inference_loader = DataLoader(data_inference, batch_size=batch_size, shuffle=False)
+	return inference_loader
 
-    model_instance = SpecGNO(
-        inNodeFeatures=node_features,
-        nNodeFeatEmbedding=width,
-        ker_width=ker_width,
-        nConvolutions=nLayers,
-        nEdgeFeatures=edge_features,
-        ntsteps=ntsteps-1, #-1 for single timestep predictions, 
-        time_emb_dim=time_emb_dim
-    ).to(device)
+def inference(checkpoint_path, folder='../sample_data/1e6/', radius_train=0.03, batch_size=1, ntsteps=2):
+	# Load the trained model
+	node_features = 6
+	width = 64
+	ker_width = 8
+	edge_features = 12
+	nLayers = 2
+	time_emb_dim = 32
 
-    # Load the checkpoint
-    checkpoint = torch.load(checkpoint_path)
-    model_state_dict = checkpoint['model_state_dict']
-    model_instance.load_state_dict(model_state_dict)
-    model_instance.eval()
+	model_instance = SpecGNO(
+		inNodeFeatures=node_features,
+		nNodeFeatEmbedding=width,
+		ker_width=ker_width,
+		nConvolutions=nLayers,
+		nEdgeFeatures=edge_features,
+		ntsteps=ntsteps-1, #-1 for single timestep predictions, 
+		time_emb_dim=time_emb_dim
+	).to(device)
 
-    # Prepare the dataloader for inference
-    inference_loader = dataloader_inference(folder, radius_train, batch_size, ntsteps)
+	# Load the checkpoint
+	checkpoint = torch.load(checkpoint_path)
+	model_state_dict = checkpoint['model_state_dict']
+	model_instance.load_state_dict(model_state_dict)
+	model_instance.eval()
 
-    all_predictions = []
-    all_true_values = []  # Optional: For evaluation purposes if ground truth is available
+	# Prepare the dataloader for inference
+	inference_loader = dataloader_inference(folder, radius_train, batch_size, ntsteps)
 
-    with torch.no_grad():
-        for batch in inference_loader:
-            batch = batch.to(device)
-            out = model_instance(batch)  # Perform forward pass
-            all_predictions.append(out.cpu().numpy())
-            all_true_values.append(batch.y.cpu().numpy())  # Optional
+	all_predictions = []
+	all_true_values = []  # Optional: For evaluation purposes if ground truth is available
 
-    # Concatenate predictions and true values (if needed)
-    all_predictions = np.concatenate(all_predictions, axis=0)
+	with torch.no_grad():
+		for batch in inference_loader:
+			batch = batch.to(device)
+			out = model_instance(batch)  # Perform forward pass
+			all_predictions.append(out.cpu().numpy())
+			all_true_values.append(batch.y.cpu().numpy())  # Optional
 
-    # Save predictions to a file
-    np.save("./Post_Proc_Data/membrane/inference_predictions.npy", all_predictions)
-    
+	# Concatenate predictions and true values (if needed)
+	all_predictions = np.concatenate(all_predictions, axis=0)
+
+	# Save predictions to a file
+	np.save("./Post_Proc_Data/membrane/inference_predictions.npy", all_predictions)
+	
 
 if __name__ == "__main__":
-    checkpoint_path = 'membrane_checkpoint.pth'  # Path to the saved model checkpoint
-    inference(checkpoint_path)
+	checkpoint_path = 'membrane_checkpoint.pth'  # Path to the saved model checkpoint
+	inference(checkpoint_path)

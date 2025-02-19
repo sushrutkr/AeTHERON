@@ -29,6 +29,7 @@ class generateDatasetMembrane:
     self.SplitNodes = np.array([])
     self.SplitVel = np.array([])
     self.SplitElem = np.array([])
+    self.BCNodes = self.get_bc_node_info()
     self.compileData()
     self.calculate_point_mass(thickness=0.02,density=1)
     self.splitData()
@@ -69,6 +70,10 @@ class generateDatasetMembrane:
      
     return
   
+  def get_bc_node_info(self):
+    nodeIDs = np.genfromtxt(self.folder+"dirichlet_bc_nodes.csv", skip_header=1)
+    return nodeIDs
+  
   def compileData(self):
     l = 0
     for k in range(self.ninit, self.nend + self.ngap, self.ngap):
@@ -98,13 +103,13 @@ class generateDatasetMembrane:
     self.SplitElem = self.AllElem[:, :, 0]
 
   def get_output_split(self):
-    return self.SplitNodes, self.SplitVel, self.SplitExtForce, self.SplitElem, np.expand_dims(self.pointMass, axis=1)
+    return self.SplitNodes, self.SplitVel, self.SplitExtForce, self.SplitElem, np.expand_dims(self.pointMass, axis=1), self.BCNodes
   
   def get_output_full(self):
     return self.AllNodes, self.AllVel, self.AllElem
 
 class unstructMeshGenerator():
-  def __init__(self,nodes,vel,forceExt,pointMass,elem):
+  def __init__(self,nodes,vel,forceExt,pointMass,elem,bc_nodes):
     self.nodes = nodes #[ntsteps/batches, nNodes, input-output, features]
     self.elem = elem #[nElem, connections]
     self.vel = vel
@@ -112,6 +117,7 @@ class unstructMeshGenerator():
     self.pointMass = pointMass
     self.nNodes = len(self.nodes[0,:,0,0])
     self.nElem = len(self.elem[:,0])
+    self.bc_nodes = bc_nodes.flatten().astype(int)
 
   def build_grid(self,k):
     return torch.tensor(self.nodes[k,:,0,:], dtype=torch.float32)
@@ -151,7 +157,13 @@ class unstructMeshGenerator():
     output = np.concatenate((self.nodes[k, :, 1:, :], self.vel[k, :, 1:, :], self.forceExt[k, :, 1:, :]), axis=2) #1: is to extract next timestep data
     output = np.transpose(output, (1, 0, 2))
 
-    return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32)
+    bc = np.ones(shape=(self.nNodes,7)) # 7 - [flag, 3 coords, 3 vels], no need for force as that's going to come from flow
+    bc[self.bc_nodes,0] = 0 #to nullify any preditions at those nodes
+    #--- Since the dimen for output is output shape :  (1, 1757, 9), i have to use first index otherwise it shoudl not be use
+    bc[self.bc_nodes,1:] = output[0,self.bc_nodes,0:6]
+
+    return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32), torch.tensor(bc, dtype=torch.float32)   
+
   
 
 class generateDatasetFluid:

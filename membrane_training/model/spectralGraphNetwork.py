@@ -42,10 +42,10 @@ class SpecGNO(nn.Module):
 
 
     #bringing higher-dimensional embedding to original feature dimension
-    self.node_decoder = nn.Linear(nNodeFeatEmbedding, inNodeFeatures)
+    self.node_decoder = nn.Linear(nNodeFeatEmbedding, inNodeFeatures-1) #-1 because we are not outputing pointMass
     
   def forward(self, data):
-    x, edge_index, edge_attr, batch, ptr = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr
+    x, edge_index, edge_attr, batch, ptr, y = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr, data.y
     # print(x.shape, edge_attr.shape, edge_index.shape) #torch.Size([3514, 6]) torch.Size([23854, 12]) torch.Size([2, 23854])
     
     num_graphs = len(ptr) - 1 # or number of batches
@@ -76,8 +76,11 @@ class SpecGNO(nn.Module):
 
     x = self.node_decoder(x)
 
-    x = x.view(self.ntsteps, num_graphs, num_nodes//num_graphs, self.inNodeFeatures)
-    x = x.transpose(0, 1).reshape(-1, num_nodes // num_graphs, self.inNodeFeatures)
+    #Application of diritchlet BC
+    x[:, 0:6] = data.bc[:, 0].unsqueeze(1) * x[:, 0:6] + (1 - data.bc[:, 0].unsqueeze(1)) * data.bc[:, 1:7]
+
+    x = x.view(self.ntsteps, num_graphs, num_nodes//num_graphs, (self.inNodeFeatures-1))
+    x = x.transpose(0, 1).reshape(-1, num_nodes // num_graphs, (self.inNodeFeatures-1))
 
     return x
   
