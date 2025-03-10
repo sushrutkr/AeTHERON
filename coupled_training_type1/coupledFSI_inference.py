@@ -9,7 +9,7 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from utilities import *
-from coupled_training.model.neuralFSI import *
+from model.coupledGNN import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 

@@ -10,12 +10,11 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from utilities import *
-from model.neuralFSI import *
+from model.coupledGNN import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from torch_geometric.data import HeteroData
 
-# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:512'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:512'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def set_seed(seed):
@@ -26,15 +25,20 @@ def set_seed(seed):
 	torch.backends.cudnn.deterministic = True
 	torch.backends.cudnn.benchmark = False
 
+def paired_collate_fn(data_list):
+    batch_memb = Batch.from_data_list([item[0] for item in data_list])
+    batch_fluid = Batch.from_data_list([item[1] for item in data_list])
+    return batch_memb, batch_fluid
+
 def dataloader_memb(folder, radius_train, batch_size, ninit, nend, ngap, ntsteps=1):
 	data = generateDatasetMembrane(ninit, nend, ngap, splitLen=ntsteps, folder=folder+"1e6/")
-	nodes, vel, forceExt, elem, pointMass, bc_nodes = data.get_output_split()
+	nodes, vel, elem = data.get_output_split()
 
 	nodes -= 20 #since 20 is center of rotation
 
 	scaler = StandardScaler()
 
-	mesh = unstructMeshGenerator(nodes=nodes, vel=vel, forceExt=forceExt, pointMass=pointMass, elem=elem, bc_nodes=bc_nodes)
+	mesh = unstructMeshGenerator(nodes=nodes, vel=vel, elem=elem)
 
 	return mesh, scaler
 
@@ -72,12 +76,12 @@ def dataloader(folder, radius_train, batch_size, ninit, nend, ngap, ntsteps=1):
 		f.write(f'Train indices: {train_indices}\n')
 		f.write(f'Val indices: {val_indices}\n')
 
-	memb_mesh, memb_scaler = dataloader_memb(folder, radius_train['radius_flow'], batch_size, ninit, nend, ngap, ntsteps)
-	flow_mesh, flow_data, flow_scaler = dataloader_flow(folder, radius_train['radius_memb'], batch_size, ntsteps)
+	memb_mesh, memb_scaler = dataloader_memb(folder, radius_train, batch_size, ninit, nend, ngap, ntsteps)
+	flow_mesh, flow_data, flow_scaler = dataloader_flow(folder, radius_train, batch_size, ntsteps)
 
 	edge_index = {
-		"memb"	:	memb_mesh.getEdgeAttr(radius_train['radius_memb']),
-		"flow"	:	flow_mesh.ball_connectivity(radius_train['radius_flow'])
+		"memb"	:	memb_mesh.getEdgeAttr(radius_train),
+		"flow"	:	flow_mesh.ball_connectivity(radius_train)
 	}
 
 	print("Flow Edges : ", edge_index['flow'].shape)
@@ -95,47 +99,23 @@ def dataloader(folder, radius_train, batch_size, ninit, nend, ngap, ntsteps=1):
 		edge_attr_flow = flow_mesh.attributes(j)
 		data_sample = memb_mesh.getInputOutput(j)
 
-		# Membrane data
-		data_sample_memb = memb_mesh.getInputOutput(j)
-		x_memb = torch.tensor(data_sample_memb[0], dtype=torch.float32, requires_grad=True)
-		y_memb = torch.tensor(data_sample_memb[1][0], dtype=torch.float32, requires_grad=True)
+		data_train.append((
+			Data(
+				x=torch.tensor(data_sample[0], dtype=torch.float32, requires_grad=True),
+				y=torch.tensor(data_sample[1][0], dtype=torch.float32, requires_grad=True),
+				edge_index=edge_index['memb'],
+				edge_attr=torch.tensor(edge_attr_memb, dtype=torch.float32, requires_grad=True),
+				),
 
-		# Flow data
-		x_flow = torch.tensor(flow_data[j, 0, :], dtype=torch.float32, requires_grad=True).view(-1, 1)
-		y_flow = torch.tensor(flow_data[j, 1, :], dtype=torch.float32, requires_grad=True).view(-1, 1)
-
-		sharedData = generateSharedData(flow_graph=flow_data[j, 0, :], eulerian_domain=flow_mesh.get_grid_coords(), memb_graph=data_sample_memb[0], radius=radius_train['radius_cross'])
-		get_cross_domain_edges = sharedData.computeSharedEdgeIndex()
-		get_cross_domain_edgeAttr = sharedData.computeSharedEdgeAttr(get_cross_domain_edges[('membrane', 'to', 'flow')])
-		print(j, get_cross_domain_edgeAttr[('membrane', 'to', 'flow')].shape)
-
-		data = HeteroData()
+			Data(
+				x=torch.tensor(flow_data[j,0,:], dtype=torch.float32, requires_grad=True).view(-1,1),
+				y=torch.tensor(flow_data[j,1,:], dtype=torch.float32, requires_grad=True).view(-1,1),
+				edge_index=edge_index['flow'],
+				edge_attr=torch.tensor(edge_attr_flow, dtype=torch.float32, requires_grad=True)
+				)))
 		
-		#node features
-		data['flow'].x = x_flow
-		data['memb'].x = x_memb
-		data['flow'].y = y_flow
-		data['memb'].y = y_memb
-		data['memb'].bc = data_sample[2]
-
-		#edge feature
-		data['flow','to','flow'].edge_index = torch.tensor(edge_index['flow'],dtype=torch.long)
-		# data['flow','to','membrane'].edge_index = torch.tensor(get_cross_domain_edges[('flow', 'to', 'membrane')],dtype=torch.long)
-		data['memb','to','flow'].edge_index = torch.tensor(get_cross_domain_edges[('membrane', 'to', 'flow')],dtype=torch.long)
-		data['memb','to','memb'].edge_index = torch.tensor(edge_index['memb'],dtype=torch.long)
-
-		#edge attribuets
-		data['flow','to','flow'].edge_attr = torch.tensor(edge_attr_flow, dtype=torch.float32)
-		# data['flow','to','membrane'].edge_attr = torch.tensor(get_cross_domain_edgeAttr[('flow', 'to', 'membrane')], dtype=torch.float32)
-		data['memb','to','flow'].edge_attr = torch.tensor(get_cross_domain_edgeAttr[('membrane', 'to', 'flow')], dtype=torch.float32)
-		data['memb','to','memb'].edge_attr = torch.tensor(edge_attr_memb, dtype=torch.float32)
-
-		print(data['flow'].x.shape, data['memb'].x.shape)
-	
-		data_train.append(data)
-
-	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True, num_workers=0)
-	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False, num_workers=0)
+	train_loader = DataLoader([data_train[i] for i in train_indices], batch_size=batch_size, shuffle=True, collate_fn=paired_collate_fn)
+	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False, collate_fn=paired_collate_fn)
 
 	return train_loader, val_loader, scaler
 
@@ -145,7 +125,7 @@ def main(checkpoint_path=None):
 	# Parameters
 	params_network = {
 		'memb_net': {
-			'inNodeFeatures'				: 9,
+			'inNodeFeatures'				: 6,
 			'nNodeFeatEmbedding'		: 16,
 			'nEdgeFeatures'					: 12,
 			'ker_width'							: 8,
@@ -172,26 +152,21 @@ def main(checkpoint_path=None):
 
 	params_data = {
 		'location' 			: '../sample_data/',
+		'radius_train' 	: 0.1,
 		'batch_size' 		: 2,
 		'ntsteps' 			: 2,
 	}
 
-	train_radius = {
-		'radius_flow' 	: 0.08,		 # keeping it >=
-		'radius_memb'		: 0.04,		 #makes sense to keep <= 2X\Delta_memb
-		'radius_cross'  : 0.04     #makes sense to keep <= 2X\Delta_memb
-	}
-
 	timeRange = {
 		'start' : 10,
-		'end'		: 30,
+		'end'		: 2000,
 		'gap'		: 10
 	}
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 	# Load data
 	train_loader, val_loader, scaler = dataloader(params_data['location'],
-																							  train_radius, 
+																							  params_data['radius_train'], 
 																								params_data['batch_size'], 
 																								timeRange['start'],
 																								timeRange['end'],
@@ -203,7 +178,7 @@ def main(checkpoint_path=None):
 
 	# Initialize model
 	# For now only performing next time step prediction
-	model_instance = neuralFSI(params=params_network).to(device)
+	model_instance = CoupledGNO(params=params_network).to(device)
 	print(model_instance)
 	optimizer = torch.optim.Adam(model_instance.parameters(), 
 															lr=params_training['learning_rate'])
@@ -232,65 +207,66 @@ def main(checkpoint_path=None):
 	for epoch in range(start_epoch, params_training['epochs']):
 		model_instance.train()
 		train_loss = 0.0
-		for batch in train_loader:
+		for memb_batch, flow_batch in train_loader:
 			optimizer.zero_grad(set_to_none=True)
-			batch = batch.to(device)
+			memb_batch = memb_batch.to(device)
+			flow_batch = flow_batch.to(device)
 
 			with torch.autocast(device_type='cuda', dtype=torch.float16): 
-				out_memb, out_flow = model_instance(batch)
+				out_memb, out_flow = model_instance(memb_batch, flow_batch)
 
-				loss_memb = criterion(out_memb.view(-1, 1), batch['memb'].y.view(-1, 1))
-				loss_flow = criterion(out_flow.view(-1, 1), batch['flow'].y.view(-1, 1))
-				loss = loss_flow + loss_memb
+				#loss_memb = criterion(out_memb.view(-1, 1), memb_batch.y.view(-1, 1))
+				loss_flow = criterion(out_flow.view(-1, 1), flow_batch.y.view(-1, 1))
+				loss = loss_flow# + loss_memb
 				
 			loss.backward()
 			del out_memb, out_flow, loss_flow#, loss_memb
 			torch.nn.utils.clip_grad_norm_(model_instance.parameters(), 1.0)
 
 			optimizer.step()
+			torch.cuda.empty_cache()  
 
 			train_loss += loss.item()
-			torch.cuda.empty_cache()
 		
 		avg_train_loss = train_loss / len(train_loader)
 		print(f"Epoch {epoch+1}/{params_training['epochs']}, Train Loss: {avg_train_loss:.6f}, lr: {optimizer.param_groups[0]['lr']:.6f}")
 
-	# 	# Save model 
-	# 	if (epoch + 1) % params_training['save_frequency'] == 0:
-	# 		torch.save({
-	# 			'epoch': epoch,
-	# 			'model_state_dict': model_instance.state_dict(),
-	# 			'optimizer_state_dict': optimizer.state_dict(),
-	# 			'scheduler_state_dict': scheduler.state_dict(),
-	# 			'train_loss': avg_train_loss,
-	# 			'val_loss': best_val_loss
-	# 		}, f'model_epoch_{epoch+1}.pth')
-	# 		print(f"Model saved at epoch {epoch+1}")
+		# Save model 
+		if (epoch + 1) % params_training['save_frequency'] == 0:
+			torch.save({
+				'epoch': epoch,
+				'model_state_dict': model_instance.state_dict(),
+				'optimizer_state_dict': optimizer.state_dict(),
+				'scheduler_state_dict': scheduler.state_dict(),
+				'train_loss': avg_train_loss,
+				'val_loss': best_val_loss
+			}, f'model_epoch_{epoch+1}.pth')
+			print(f"Model saved at epoch {epoch+1}")
 
-	# 	# Validation
-	# 	if (epoch + 1) % params_training['validation_frequency'] == 0:
-	# 		model_instance.eval()
-	# 		val_loss = 0.0
-	# 		with torch.no_grad():
-	# 			for memb_batch, flow_batch in val_loader:
-	# 				memb_batch = memb_batch.to(device)
-	# 				flow_batch = flow_batch.to(device)
-	# 				with torch.autocast(device_type='cuda', dtype=torch.float16):
-	# 					out_memb, out_flow = model_instance(memb_batch, flow_batch)
+		# Validation
+		if (epoch + 1) % params_training['validation_frequency'] == 0:
+			model_instance.eval()
+			val_loss = 0.0
+			with torch.no_grad():
+				for memb_batch, flow_batch in val_loader:
+					memb_batch = memb_batch.to(device)
+					flow_batch = flow_batch.to(device)
+					with torch.autocast(device_type='cuda', dtype=torch.float16):
+						out_memb, out_flow = model_instance(memb_batch, flow_batch)
 
-	# 					#loss_memb = criterion(out_memb.view(-1, 1), memb_batch.y.view(-1, 1))
-	# 					loss_flow = criterion(out_flow.view(-1, 1), flow_batch.y.view(-1, 1))
-	# 					loss = loss_flow# + loss_memb
-	# 				val_loss += loss.item()
+						#loss_memb = criterion(out_memb.view(-1, 1), memb_batch.y.view(-1, 1))
+						loss_flow = criterion(out_flow.view(-1, 1), flow_batch.y.view(-1, 1))
+						loss = loss_flow# + loss_memb
+					val_loss += loss.item()
 
-	# 		avg_val_loss = val_loss / len(val_loader)
-	# 		print(f"Epoch {epoch+1}/{params_training['epochs']}, Validation Loss: {avg_val_loss:.6f}")
+			avg_val_loss = val_loss / len(val_loader)
+			print(f"Epoch {epoch+1}/{params_training['epochs']}, Validation Loss: {avg_val_loss:.6f}")
 
-	# 		# Save best model
-	# 		if avg_val_loss < best_val_loss:
-	# 			best_val_loss = avg_val_loss
-	# 			torch.save(model_instance.state_dict(), 'best_model.pth')
-	# 			print(f"Best model saved with validation loss: {best_val_loss:.6f}")
+			# Save best model
+			if avg_val_loss < best_val_loss:
+				best_val_loss = avg_val_loss
+				torch.save(model_instance.state_dict(), 'best_model.pth')
+				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
 
 if __name__ == "__main__":
 	main()

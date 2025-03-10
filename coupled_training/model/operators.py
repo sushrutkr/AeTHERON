@@ -7,7 +7,7 @@ from torch_geometric.nn.inits import reset, uniform
 import torch.nn.functional as F
 from torch.nn.functional import scaled_dot_product_attention
 
-class NNConv(MessagePassing):
+class intraMessagePassing(MessagePassing):
   def __init__(self,
                 in_channels,
                 out_channels,
@@ -16,7 +16,7 @@ class NNConv(MessagePassing):
                 root_weight=True,
                 bias=True,
                 **kwargs):
-    super(NNConv, self).__init__(aggr=aggr, **kwargs)
+    super(intraMessagePassing, self).__init__(aggr=aggr, **kwargs)
 
     self.in_channels = in_channels
     self.out_channels = out_channels
@@ -58,10 +58,17 @@ class NNConv(MessagePassing):
         aggr_out = aggr_out + self.bias
     return aggr_out
 
-  def __repr__(self):
-    return '{}({}, {})'.format(self.__class__.__name__, self.in_channels,
-                                self.out_channels)
-    
+# class crossAttnMessagePassing(MessagePassing):
+#    def __init__(self):
+#       super(crossAttnMessagePassing,self).__init__
+
+#     def forward(self):
+
+#       return
+   
+#     def message(self, x_j: torch.Tensor) -> torch.Tensor:
+#        return super().message(x_j)
+
 class DenseNet(torch.nn.Module):
   def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):
     super(DenseNet, self).__init__()
@@ -96,14 +103,14 @@ class FlashCrossAttention(nn.Module):
     self.hidden_dim = hidden_dim
     
     # Project G2 edge features (fluid) to query
-    self.query_proj = nn.Linear(edge_dim, hidden_dim)
+    self.query_proj = nn.Linear(edge_dim, hidden_dim, bias=False)
     
     # Project G1 node features (structure) to key/value
-    self.key_proj = nn.Linear(node_dim, hidden_dim)
-    self.value_proj = nn.Linear(node_dim, hidden_dim)
+    self.key_proj = nn.Linear(node_dim, hidden_dim, bias=False)
+    self.value_proj = nn.Linear(node_dim, hidden_dim, bias=False)
     
     # Output projection
-    self.out_proj = nn.Linear(hidden_dim, edge_dim)
+    self.out_proj = nn.Linear(hidden_dim, edge_dim, bias=False)
 
   def forward(self, edge_feats, node_feats):
 

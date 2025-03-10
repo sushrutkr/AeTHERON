@@ -22,8 +22,19 @@ class SpecGNO(nn.Module):
     self.inNodeFeatures = inNodeFeatures
 
     #Projecting node feature to higher dimensional embeddings
-    self.node_encoder = nn.Linear(inNodeFeatures+time_emb_dim, nNodeFeatEmbedding)
-    self.edge_encoder = nn.Linear(nEdgeFeatures, nNodeFeatEmbedding)
+    # self.node_encoder = nn.Linear(inNodeFeatures+time_emb_dim, nNodeFeatEmbedding)
+    # self.node_encoder = nn.Linear(inNodeFeatures, nNodeFeatEmbedding)
+    # self.edge_encoder = nn.Linear(nEdgeFeatures, nNodeFeatEmbedding)
+    self.node_encoder = nn.Sequential(nn.Linear(inNodeFeatures, nNodeFeatEmbedding), 
+                                      nn.ReLU(),
+                                      nn.Linear(nNodeFeatEmbedding, nNodeFeatEmbedding), 
+                                      nn.ReLU())
+
+    self.edge_encoder = nn.Sequential(nn.Linear(nEdgeFeatures, nNodeFeatEmbedding), 
+                                      nn.ReLU(),
+                                      nn.Linear(nNodeFeatEmbedding, nNodeFeatEmbedding), 
+                                      nn.ReLU())
+    
 
     #initialize kernel
     phi = nn.Sequential(nn.Linear(3*nNodeFeatEmbedding,nNodeFeatEmbedding), nn.ReLU())
@@ -42,7 +53,11 @@ class SpecGNO(nn.Module):
 
 
     #bringing higher-dimensional embedding to original feature dimension
-    self.node_decoder = nn.Linear(nNodeFeatEmbedding, inNodeFeatures-1) #-1 because we are not outputing pointMass
+    # self.node_decoder = nn.Sequential(nn.Linear(nNodeFeatEmbedding, nNodeFeatEmbedding), 
+    #                                   nn.ReLU(),
+    #                                   nn.Linear(nNodeFeatEmbedding, inNodeFeatures-1) #-1 because we are not outputing pointMass
+    #                                   )
+    self.node_decoder = nn.Sequential(nn.Linear(nNodeFeatEmbedding, inNodeFeatures-1))
     
   def forward(self, data):
     x, edge_index, edge_attr, batch, ptr, y = data.x, data.edge_index, data.edge_attr, data.batch, data.ptr, data.y
@@ -56,7 +71,7 @@ class SpecGNO(nn.Module):
 
     x = x.repeat(self.ntsteps,1)
     time_emb_repeated = time_emb.unsqueeze(1).repeat(1, num_nodes, 1).view(-1, self.time_emb_dim)
-    x = torch.cat((x, time_emb_repeated), dim=1)
+    # x = torch.cat((x, time_emb_repeated), dim=1)
 
     edge_index = edge_index.repeat(1, self.ntsteps)
     offsets = torch.arange(self.ntsteps, device=edge_index.device).repeat_interleave(num_edges) * num_nodes
@@ -72,7 +87,7 @@ class SpecGNO(nn.Module):
     for i in range(self.nConvolutions):
       # edge_attr = self.time_conv_modules[i](edge_attr)
       # x = self.time_conv_modules[i](x.view(self.ntsteps, num_nodes, self.nNodeFeatEmbedding)).view(self.ntsteps*num_nodes, self.nNodeFeatEmbedding)
-      x = F.relu(self.layer(x, edge_index, edge_attr))
+      x = x + F.relu(self.layer(x, edge_index, edge_attr))
 
     x = self.node_decoder(x)
 

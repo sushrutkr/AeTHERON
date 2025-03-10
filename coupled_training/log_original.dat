@@ -1,0 +1,31 @@
+Number of data samples :  199
+(199, 2, 223440)
+----Loaded Data----
+CoupledGNO(
+  (layer_flow): GNO(
+    (feature_embedding): Linear(in_features=1, out_features=8, bias=True)
+    (layer): NNConv(8, 8)
+    (inv_embedding): Linear(in_features=8, out_features=1, bias=True)
+  )
+  (crossAttention): FlashCrossAttention(
+    (query_proj): Linear(in_features=8, out_features=16, bias=False)
+    (key_proj): Linear(in_features=6, out_features=16, bias=False)
+    (value_proj): Linear(in_features=6, out_features=16, bias=False)
+    (out_proj): Linear(in_features=16, out_features=8, bias=False)
+  )
+)
+Epoch 1/10, Train Loss: 0.066999, lr: 0.001000
+Epoch 2/10, Train Loss: 0.024119, lr: 0.001000
+Epoch 3/10, Train Loss: 0.005461, lr: 0.001000
+Epoch 4/10, Train Loss: 0.004714, lr: 0.001000
+Epoch 5/10, Train Loss: 0.004653, lr: 0.001000
+Model saved at epoch 5
+Epoch 5/10, Validation Loss: 0.004734
+Best model saved with validation loss: 0.004734
+Epoch 6/10, Train Loss: 0.004631, lr: 0.001000
+Epoch 7/10, Train Loss: 0.004649, lr: 0.001000
+Epoch 8/10, Train Loss: 0.004627, lr: 0.001000
+Epoch 9/10, Train Loss: 0.004624, lr: 0.001000
+Epoch 10/10, Train Loss: 0.004619, lr: 0.001000
+Model saved at epoch 10
+Epoch 10/10, Validation Loss: 0.004772

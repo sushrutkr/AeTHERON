@@ -67,17 +67,28 @@ def dataloader(folder, radius_train, batch_size,ntsteps=1):
 
 	return train_loader, val_loader, scaler
 
+class LossFunction(nn.Module):
+	def __init__(self):
+		super(LossFunction, self).__init__()
+
+		self.mseLoss = nn.MSELoss()
+
+	def forward():
+		loss = 0
+
+		return loss
+
 def main(checkpoint_path=None):
 	set_seed(42)
 
 	# Parameters
-	radius_train = 0.03
-	batch_size = 5
-	width = 64  # uplifting node_features+time_emb_dim to wwidth
+	radius_train = 0.1
+	batch_size = 10
+	width = 128  # uplifting node_features+time_emb_dim to wwidth
 	ker_width = 8  
 	edge_features = 7
 	node_features = 10
-	nLayers = 2
+	nLayers = 6
 	epochs = 1000
 	learning_rate = 0.001 
 	scheduler_step = 500  
@@ -177,7 +188,7 @@ def main(checkpoint_path=None):
 						'scheduler_state_dict': scheduler.state_dict(),
 						'epoch': epoch,
 						'val_loss': val_loss
-				}, 'membrane_checkpoint.pth')
+				}, 'membrane_best_model.pth')
 				print(f"Checkpoint saved at epoch {epoch} with validation loss: {val_loss:.6f}")
 
 	# Final evaluation

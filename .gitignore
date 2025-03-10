@@ -14,6 +14,11 @@
 /membrane_training/__pycache__/*
 /membrane_training/model/__pycache__/*
 /membrane_training/Post_Proc_Data/
+/coupled_training_type1/*.pth
+/coupled_training_type1/*.npy
+/coupled_training_type1/__pycache__/*
+/coupled_training_type1/model/__pycache__/*
+/coupled_training_type1/Post_Proc_Data/
 /coupled_training/*.pth
 /coupled_training/*.npy
 /coupled_training/__pycache__/*

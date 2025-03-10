@@ -164,7 +164,6 @@ class unstructMeshGenerator():
 
     return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32), torch.tensor(bc, dtype=torch.float32)   
 
-  
 
 class generateDatasetFluid:
   def __init__(self,pathName,splitLen=1):

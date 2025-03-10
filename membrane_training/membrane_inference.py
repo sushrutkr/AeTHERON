@@ -38,11 +38,11 @@ def dataloader_inference(folder, radius_train, batch_size, ntsteps=1):
 
 def inference(checkpoint_path, folder='../sample_data/1e6/', radius_train=0.03, batch_size=1, ntsteps=2):
 	# Load the trained model
-	node_features = 6
-	width = 64
+	node_features = 10
+	width = 128
 	ker_width = 8
-	edge_features = 12
-	nLayers = 2
+	edge_features = 7
+	nLayers = 6
 	time_emb_dim = 32
 
 	model_instance = SpecGNO(
@@ -65,14 +65,12 @@ def inference(checkpoint_path, folder='../sample_data/1e6/', radius_train=0.03, 
 	inference_loader = dataloader_inference(folder, radius_train, batch_size, ntsteps)
 
 	all_predictions = []
-	all_true_values = []  # Optional: For evaluation purposes if ground truth is available
 
 	with torch.no_grad():
 		for batch in inference_loader:
 			batch = batch.to(device)
 			out = model_instance(batch)  # Perform forward pass
 			all_predictions.append(out.cpu().numpy())
-			all_true_values.append(batch.y.cpu().numpy())  # Optional
 
 	# Concatenate predictions and true values (if needed)
 	all_predictions = np.concatenate(all_predictions, axis=0)
@@ -82,5 +80,5 @@ def inference(checkpoint_path, folder='../sample_data/1e6/', radius_train=0.03, 
 	
 
 if __name__ == "__main__":
-	checkpoint_path = 'membrane_checkpoint.pth'  # Path to the saved model checkpoint
+	checkpoint_path = 'membrane_best_model.pth'  # Path to the saved model checkpoint
 	inference(checkpoint_path)

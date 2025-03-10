@@ -15,13 +15,13 @@ class CoupledGNO(nn.Module):
   def __init__(self, params):
     super(CoupledGNO, self).__init__()
     
-    self.layer_memb = GNO(
-      params['memb_net']['inNodeFeatures'], 
-      params['memb_net']['nNodeFeatEmbedding'], 
-      params['memb_net']['nEdgeFeatures'], 
-      params['memb_net']['ker_width'],
-      params['memb_net']['nlayers']
-      )
+    # self.layer_memb = GNO(
+    #   params['memb_net']['inNodeFeatures'], 
+    #   params['memb_net']['nNodeFeatEmbedding'], 
+    #   params['memb_net']['nEdgeFeatures'], 
+    #   params['memb_net']['ker_width'],
+    #   params['memb_net']['nlayers']
+    #   )
     
     self.layer_flow = GNO(
       params['flow_net']['inNodeFeatures'], 
@@ -39,10 +39,11 @@ class CoupledGNO(nn.Module):
     
   def forward(self, data_memb, data_flow):
 
-    x_memb = self.layer_memb(data_memb.x, data_memb.edge_index, data_memb.edge_attr)
-    cross_attn_output = self.crossAttention(data_flow.edge_attr, data_memb.x)
+    x_memb = self.layer_memb(data_memb.x, data_memb.edge_index, data_memb.edge_attr) #membrane output
+    # x_memb = data_memb.y
+    cross_attn_output = self.crossAttention(data_flow.edge_attr, x_memb) #this gives the updated edge_features for flow predictions
     # flow_edge_attr = torch.concat((cross_attn_output, data_flow.edge_attr),axis=1)
-    x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, cross_attn_output)
+    x_flow = self.layer_flow(data_flow.x, data_flow.edge_index, cross_attn_output) #flow output
 
     return x_memb, x_flow
   
