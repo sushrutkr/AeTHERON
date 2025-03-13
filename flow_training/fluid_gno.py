@@ -70,7 +70,7 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 			x = torch.tensor(splitData[j,0,:], dtype=torch.float32).view(-1,1),
 			y = torch.tensor(splitData[j,1,:], dtype=torch.float32).view(-1,1),
 			# y=torch.tensor(splitData[j,:,:].transpose(), dtype=torch.float32),
-			edge_index = edge_index,
+			edge_index = torch.tensor(edge_index,dtype=torch.long),
 			edge_attr = torch.tensor(edge_attr, dtype=torch.float32)
 		))
 
@@ -91,7 +91,7 @@ def main(checkpoint_path=None):
 	edge_features = 8
 	node_features = 1
 	nLayers = 2
-	epochs = 5000
+	epochs = 10
 	learning_rate = 0.001 
 	scheduler_step = 500  
 	scheduler_gamma = 0.5

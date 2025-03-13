@@ -121,17 +121,13 @@ class unstructMeshGenerator():
 
     return torch.tensor(input, dtype=torch.float32), torch.tensor(output, dtype=torch.float32)
   
-
-
-
-
 class generateDatasetFluid:
   def __init__(self,pathName,splitLen=1):
     self.data = np.load(pathName+'data.npy')
     self.nx = self.data.shape[2]
     self.ny = self.data.shape[3]
     self.nz = self.data.shape[4]
-    self.ntsteps = self.data.shape[0] + 1
+    self.ntsteps = self.data.shape[0]
     self.split = splitLen
     self.combined_data()
 
@@ -140,7 +136,7 @@ class generateDatasetFluid:
     # self.combinedData[0,:,:,:] = self.data[0,0,:,:,:]
     # for i in range(self.data.shape[0]):
     #   self.combinedData[i+1,:,:,:] = self.data[i,1,:,:,:]    
-    self.combinedData = self.data[:,3,:,:,:]
+    self.combinedData = self.data[:,3,:,:,:] # as 3rd data is for vorticity
     return self.combinedData
   
   def get_grid_coords(self):
@@ -157,14 +153,109 @@ class generateDatasetFluid:
   def splitDataset(self):
     num_splits = self.ntsteps - self.split + 1
     numNodes = self.combinedData.shape[1]
-    features = 1
     self.SplitData = np.zeros((num_splits, self.split, numNodes))
 
     for i in range(num_splits):
+      #here, num_split is new data size and for each data point I extract pair from that timestep
+      #corresponding to that data point to 1 before num split. 
+      #then in the code I use the next timestep data.
       self.SplitData[i,:,:] = self.combinedData[i:i+self.split,:]
 
     return self.SplitData
   
+class RectilinearMeshGenerator(object):
+  def __init__(self, real_space, reference_coords, data):
+    super(RectilinearMeshGenerator, self).__init__()
+
+    self.d = len(real_space)
+    self.data = data
+    self.nx = real_space[0].shape[0] #just getting # points from x arrays
+    self.ny = real_space[0].shape[1]
+    self.nz = real_space[0].shape[2]
+
+    #flatten order 'F' helps to visualize point in paraview
+    self.grid = np.vstack([real_space[0].flatten(order='F') - reference_coords[0], 
+                           real_space[1].flatten(order='F') - reference_coords[1], 
+                           real_space[2].flatten(order='F') - reference_coords[2]]).T
+    
+  def ball_connectivity_old(self, r):
+    #computationaly inefficient complex as it creates a full matrix first and then sample
+    pwd = sklearn.metrics.pairwise_distances(self.grid)
+    self.edge_index = np.vstack(np.where(pwd <= r))
+    self.n_edges = self.edge_index.shape[1]
+
+    return self.edge_index
+  
+  def ball_connectivity(self, r):
+    tree = BallTree(self.grid, leaf_size=2)  # O(NlogN)
+    ind = tree.query_radius(self.grid, r=r)  # O(logN)
+    
+    row = []
+    col = []
+    for i, neighbors in enumerate(ind):
+      for neighbor in neighbors:
+        # if i != neighbor:  # Jus to avoid self-connection, not used in present case
+          row.append(i)
+          col.append(neighbor)
+  
+    self.edge_index = np.vstack((row, col))
+    self.n_edges = self.edge_index.shape[1] #shape = (2,N)
+
+    return self.edge_index
+
+  def get_grid(self):
+    return self.grid
+  
+  def attributes(self,k):
+    # edge_attr = np.zeros((self.n_edges, 8))
+    # for n, (i,j) in enumerate(self.edge_index.transpose()):
+    #     edge_attr[n, :] = np.concatenate((self.grid[i, :], self.grid[j, :], [self.data[k, 0, i]], [self.data[k, 0, j]]))
+    i = self.edge_index[0]
+    j = self.edge_index[1]
+
+    # Gather grid and data values
+    grid_i = self.grid[i]
+    grid_j = self.grid[j]
+    data_i = self.data[k, 0, i].reshape(-1, 1)
+    data_j = self.data[k, 0, j].reshape(-1, 1)
+
+    edge_attr = np.concatenate((grid_i, grid_j, data_i, data_j), axis=1)
+
+    return edge_attr
+  
+  def get_grid_coords(self):
+    return self.grid
+  
+
+class DenseNet(torch.nn.Module):
+  def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):
+    super(DenseNet, self).__init__()
+
+    self.n_layers = len(layers) - 1
+
+    assert self.n_layers >= 1
+
+    self.layers = nn.ModuleList()
+
+    for j in range(self.n_layers):
+      self.layers.append(nn.Linear(layers[j], layers[j+1]))
+
+      if j != self.n_layers - 1:
+        if normalize:
+          self.layers.append(nn.BatchNorm1d(layers[j+1]))
+
+        self.layers.append(nonlinearity())
+
+    if out_nonlinearity is not None:
+      self.layers.append(out_nonlinearity())
+
+  def forward(self, x):
+    for _, l in enumerate(self.layers):
+      x = l(x)
+
+    return x
+  
+
 class CartesianMeshGenerator(object):
   def __init__(self, real_space, mesh_size,data):
     super(CartesianMeshGenerator, self).__init__()
@@ -234,90 +325,3 @@ class CartesianMeshGenerator(object):
     edge_attr = np.concatenate((grid_i, grid_j, data_i, data_j), axis=1)
 
     return torch.tensor(edge_attr, dtype=torch.float32)
-
-class RectilinearMeshGenerator(object):
-  def __init__(self, real_space, reference_coords, data):
-    super(RectilinearMeshGenerator, self).__init__()
-
-    self.d = len(real_space)
-    self.data = data
-    self.nx = real_space[0].shape[0] #just getting # points from x arrays
-    self.ny = real_space[0].shape[1]
-    self.nz = real_space[0].shape[2]
-    self.grid = np.vstack([real_space[0].flatten() - reference_coords[0], 
-                           real_space[1].flatten() - reference_coords[1], 
-                           real_space[2].flatten() - reference_coords[2]]).T
-    
-  def ball_connectivity_old(self, r):
-    #computationaly inefficient complex as it creates a full matrix first and then sample
-    pwd = sklearn.metrics.pairwise_distances(self.grid)
-    self.edge_index = np.vstack(np.where(pwd <= r))
-    self.n_edges = self.edge_index.shape[1]
-
-    return torch.tensor(self.edge_index, dtype=torch.long)
-  
-  def ball_connectivity(self, r):
-    tree = BallTree(self.grid, leaf_size=2)  # O(NlogN)
-    ind = tree.query_radius(self.grid, r=r)  # O(logN)
-    
-    row = []
-    col = []
-    for i, neighbors in enumerate(ind):
-      for neighbor in neighbors:
-        # if i != neighbor:  # Jus to avoid self-connection, not used in present case
-          row.append(i)
-          col.append(neighbor)
-  
-    self.edge_index = np.vstack((row, col))
-    self.n_edges = self.edge_index.shape[1] #shape = (2,N)
-
-    return torch.tensor(self.edge_index)
-
-  def get_grid(self):
-    return torch.tensor(self.grid, dtype=torch.float32)
-  
-  def attributes(self,k):
-    # edge_attr = np.zeros((self.n_edges, 8))
-    # for n, (i,j) in enumerate(self.edge_index.transpose()):
-    #     edge_attr[n, :] = np.concatenate((self.grid[i, :], self.grid[j, :], [self.data[k, 0, i]], [self.data[k, 0, j]]))
-    i = self.edge_index[0]
-    j = self.edge_index[1]
-
-    # Gather grid and data values
-    grid_i = self.grid[i]
-    grid_j = self.grid[j]
-    data_i = self.data[k, 0, i].reshape(-1, 1)
-    data_j = self.data[k, 0, j].reshape(-1, 1)
-
-    edge_attr = np.concatenate((grid_i, grid_j, data_i, data_j), axis=1)
-
-    return torch.tensor(edge_attr, dtype=torch.float32)
-  
-
-class DenseNet(torch.nn.Module):
-  def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):
-    super(DenseNet, self).__init__()
-
-    self.n_layers = len(layers) - 1
-
-    assert self.n_layers >= 1
-
-    self.layers = nn.ModuleList()
-
-    for j in range(self.n_layers):
-      self.layers.append(nn.Linear(layers[j], layers[j+1]))
-
-      if j != self.n_layers - 1:
-        if normalize:
-          self.layers.append(nn.BatchNorm1d(layers[j+1]))
-
-        self.layers.append(nonlinearity())
-
-    if out_nonlinearity is not None:
-      self.layers.append(out_nonlinearity())
-
-  def forward(self, x):
-    for _, l in enumerate(self.layers):
-      x = l(x)
-
-    return x

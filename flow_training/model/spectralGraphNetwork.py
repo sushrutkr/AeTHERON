@@ -22,7 +22,8 @@ class SpecGNO(nn.Module):
     self.inNodeFeatures = inNodeFeatures
 
     #Projecting node feature to higher dimensional embeddings
-    self.feature_embedding = nn.Linear(inNodeFeatures+time_emb_dim, nNodeFeatEmbedding)
+    # self.feature_embedding = nn.Linear(inNodeFeatures+time_emb_dim, nNodeFeatEmbedding)
+    self.feature_embedding = nn.Linear(inNodeFeatures, nNodeFeatEmbedding)
 
     #initialize kernel
     kernel = DenseNet([nEdgeFeatures, ker_width, ker_width, nNodeFeatEmbedding**2], torch.nn.ReLU)
@@ -30,7 +31,7 @@ class SpecGNO(nn.Module):
     #initializeGNO
     self.layer = NNConv(nNodeFeatEmbedding, nNodeFeatEmbedding, kernel, aggr='mean')
 
-    #initialize spectral layers for features, here we might not need node update
+    # initialize spectral layers for features, here we might not need node update
     self.time_conv_modules = nn.ModuleList() 
     self.time_conv_x_modules = nn.ModuleList()
     for _ in range(self.nConvolutions):
@@ -52,7 +53,7 @@ class SpecGNO(nn.Module):
 
     x = x.repeat(self.ntsteps,1)
     time_emb_repeated = time_emb.unsqueeze(1).repeat(1, num_nodes, 1).view(-1, self.time_emb_dim)
-    x = torch.cat((x, time_emb_repeated), dim=1)
+    # x = torch.cat((x, time_emb_repeated), dim=1)
 
     edge_index = edge_index.repeat(1, self.ntsteps)
     offsets = torch.arange(self.ntsteps, device=edge_index.device).repeat_interleave(num_edges) * num_nodes
