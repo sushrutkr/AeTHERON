@@ -19,6 +19,7 @@ class generateDatasetMembrane:
     self.ngap = ngap
     self.split = splitLen
     self.ntsteps = int(((nend - ninit) / ngap) + 1)
+    assert self.ntsteps - splitLen > 0
     self.folder = folder
     fnameMesh = os.path.join(folder, "marker.{:>07d}.dat".format(ninit))
     self.nNodes, self.nElem = generateDatasetMembrane.obtainNnodesAndElem(fnameMesh)

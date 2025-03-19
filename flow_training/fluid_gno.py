@@ -60,6 +60,7 @@ def dataloader(folder, radius_train, batch_size, ntsteps=1):
 	)
 
 	edge_index = mesh.ball_connectivity(radius_train)
+	print(edge_index.shape)
 
 	data_train = []
 	for j in range(num_samples):
@@ -104,7 +105,7 @@ def main(checkpoint_path=None):
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 	# Load data
-	train_loader, val_loader, scaler = dataloader('../sample_data/', radius_train, batch_size, ntsteps)
+	train_loader, val_loader, scaler = dataloader('../data/h02_St04/', radius_train, batch_size, ntsteps)
 	print("----Loaded Data----")
 
 	# Initialize model

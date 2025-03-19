@@ -1,4 +1,4 @@
-/sample_data/
+/data/
 /reference_models/EGNO/mlruns/
 /reference_models/EGNO/exp_results
 /reference_models/EGNO/model/__pycache__/
@@ -24,4 +24,5 @@
 /coupled_training/__pycache__/*
 /coupled_training/model/__pycache__/*
 /coupled_training/Post_Proc_Data/
+/coupled_training/preprocessing/__pycache__/*
 /__pycache__/
