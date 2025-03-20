@@ -11,12 +11,9 @@ def get_timestep_embedding(t, d, structure):
 	# embeddings
 	# sin(2 \pi (1/10^(i/d)) t)
 	# cos(2 \pi (1/10^(i/d)) t)
+	t = t.view(-1,1)
 	scales = torch.arange(0, d//2).to(device)
-	freqs = 10**(scales/(d/2))
-
-	print("emb",t.shape, freqs.shape)
-	print(t)
-	print(freqs)
+	freqs = 10**(scales/(d//2))
 
 	if structure == "ordered":
 		emb = 2 * torch.pi*t/freqs
@@ -40,6 +37,7 @@ class time_conditioning(nn.Module):
 		gamma_tau = self.gamma(tau.view(-1, 1))
 		lambda_tau = self.lambda_(tau.view(-1, 1))
 		x = (1 + tau * gamma_tau) * x + tau * lambda_tau	
+		#Process - Scale							= shift
 
 		return x
 	

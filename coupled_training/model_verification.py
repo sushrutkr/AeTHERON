@@ -1,6 +1,7 @@
 import torch
 from torch_geometric.data import Data, DataLoader
 from model.neuralFSI import *
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # def create_simple_graphs():
 #     # Graph 1: 5 nodes in a line
@@ -66,37 +67,54 @@ from model.neuralFSI import *
 #         batch = batch.to(device)
 #         out = model_instance(batch)
 
-from torch_geometric.data import HeteroData, Batch
-from torch_geometric.loader import DataLoader
+# from torch_geometric.data import HeteroData, Batch
+# from torch_geometric.loader import DataLoader
 
-class HeteroBatch(HeteroData):
-    def __inc__(self, key, value, store):
-        if 'edge_index' in key:
-            # Get node type for src and dst
-            src_type, _, dst_type = key[0], key[1], key[2]
+# class HeteroBatch(HeteroData):
+#     def __inc__(self, key, value, store):
+#         if 'edge_index' in key:
+#             # Get node type for src and dst
+#             src_type, _, dst_type = key[0], key[1], key[2]
             
-            # Return increments for source and destination nodes
-            return torch.tensor([
-                self[src_type].num_nodes, 
-                self[dst_type].num_nodes
-            ])
-        return super().__inc__(key, value, store)
+#             # Return increments for source and destination nodes
+#             return torch.tensor([
+#                 self[src_type].num_nodes, 
+#                 self[dst_type].num_nodes
+#             ])
+#         return super().__inc__(key, value, store)
 
-# Create list of HeteroData graphs
-test_data = [
-    HeteroBatch(  # Graph 1
-        memb={'x': torch.randn(5, 8), 'y': torch.randn(5)},
-        flow={'x': torch.randn(3, 4)},
-        memb__to__flow={'edge_index': torch.tensor([[0,1],[0,0]], dtype=torch.long)}
-    ),
-    HeteroBatch(  # Graph 2
-        memb={'x': torch.randn(3, 8), 'y': torch.randn(3)},
-        flow={'x': torch.randn(2, 4)},
-        memb__to__flow={'edge_index': torch.tensor([[0],[0]], dtype=torch.long)}
-    )
-]
+# # Create list of HeteroData graphs
+# test_data = [
+#     HeteroBatch(  # Graph 1
+#         memb={'x': torch.randn(5, 8), 'y': torch.randn(5)},
+#         flow={'x': torch.randn(3, 4)},
+#         memb__to__flow={'edge_index': torch.tensor([[0,1],[0,0]], dtype=torch.long)}
+#     ),
+#     HeteroBatch(  # Graph 2
+#         memb={'x': torch.randn(3, 8), 'y': torch.randn(3)},
+#         flow={'x': torch.randn(2, 4)},
+#         memb__to__flow={'edge_index': torch.tensor([[0],[0]], dtype=torch.long)}
+#     )
+# ]
 
-loader = DataLoader(test_data, batch_size=2, collate_fn=lambda b: Batch.from_data_list(b, cls=HeteroBatch))
-batch = next(iter(loader))
+# loader = DataLoader(test_data, batch_size=2, collate_fn=lambda b: Batch.from_data_list(b, cls=HeteroBatch))
+# batch = next(iter(loader))
 
-print(batch['memb', 'to', 'flow'].edge_index)
+# print(batch['memb', 'to', 'flow'].edge_index)
+
+
+d = 4
+
+tau = torch.tensor([0.02]).to(device)
+nBatches = 1
+
+time_embeddings =  get_timestep_embedding(tau, d, structure="ordered")
+print(time_embeddings.shape)
+
+nMembNodes = 3
+nFlowNodes = 5
+
+time_repeat = time_embeddings.repeat_interleave(nMembNodes, dim=0)
+print(time_repeat)
+
+

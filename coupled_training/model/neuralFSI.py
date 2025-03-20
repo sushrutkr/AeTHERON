@@ -46,16 +46,15 @@ class neuralFSI(nn.Module):
     })
 
   def forward(self, batch):
-    nFlowNodes = batch['flow'].x.shape[0]
-    nMembNodes = batch['memb'].x.shape[0]
+    nBatches = batch['tau'].shape[0]
+    nFlowNodes = batch['flow'].x.shape[0]//nBatches
+    nMembNodes = batch['memb'].x.shape[0]//nBatches
 
-    time_embeddings = get_timestep_embedding(batch['tau'], self.params['time_embedding_dim'], structure="ordered")
+    time_embeddings = get_timestep_embedding(batch['tau'], self.params['time_embedding_dim'], structure="ordered") #shape = (nBatches, time_embedding_dim)
 
-    #need to implement repeat time embedding properly. so that tau can be mapped to all batches and then to all nodes.
-    #refer to logic used in flow_training code
-    
-    x_memb = self.encoder["memb"]( torch.cat([batch['memb'].y, time_embeddings.repeat(nMembNodes,1)], axis=1 ) ) #For now i just train to obtain the latent embedding of membrane nodes features at next timestep
-    x_flow = self.encoder["flow"]( torch.cat([batch['flow'].x, time_embeddings.repeat(nFlowNodes,1)], axis=1 ) )
+    #interleave_repeat to implement repeat time embedding properly. so that tau can be mapped to all batches and then to all nodes.
+    x_memb = self.encoder["memb"]( torch.cat([batch['memb'].y, time_embeddings.repeat_interleave(nMembNodes, dim=0)], axis=1 ) ) #For now i just train to obtain the latent embedding of membrane nodes features at next timestep
+    x_flow = self.encoder["flow"]( torch.cat([batch['flow'].x, time_embeddings.repeat_interleave(nFlowNodes, dim=0)], axis=1 ) )
 
     flow_edge_index = {
       "flow_to_flow"  : batch['flow','to','flow'].edge_index,
@@ -74,7 +73,8 @@ class neuralFSI(nn.Module):
 
     for i in range(self.params['nlayers']):
       x_flow = F.relu(self.layer_flow(node_feat, flow_edge_index, flow_edge_attr))
-      x_flow = x_flow + self.time_condition["flow"](x_flow, batch['tau'])
+      x_flow = x_flow + self.time_condition["flow"](x_flow, 
+                                                    batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0))
 
     x_memb = self.decoder["memb"]( x_memb )
     x_flow = self.decoder["flow"]( x_flow )

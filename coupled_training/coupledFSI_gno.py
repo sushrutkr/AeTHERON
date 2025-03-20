@@ -71,12 +71,6 @@ def main(checkpoint_path=None):
 		'radius_cross'  : 0.04     #makes sense to keep <= 2X\Delta_memb
 	}
 
-	timeRange = {
-		'start' : 10,
-		'end'		: 2000,
-		'gap'		: 10
-	}
-
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 	# Load data
@@ -104,7 +98,7 @@ def main(checkpoint_path=None):
 																						 gamma=params_training['scheduler_gamma'])
 	criterion = torch.nn.MSELoss()
 
-	model_instance = torch.compile(model_instance, dynamic=True)
+	# model_instance = torch.compile(model_instance, dynamic=True)
 
 	# Initialize training
 	start_epoch = 0
