@@ -6,6 +6,7 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn.inits import reset, uniform
 import torch.nn.functional as F
 from torch.nn.functional import scaled_dot_product_attention
+from torch_scatter.composite import scatter_softmax
 
 class intraMessagePassing(MessagePassing):
 	def __init__(self,
@@ -71,14 +72,17 @@ class crossAttnMessagePassing(MessagePassing):
 		return self.propagate(edge_index, x_fluid=x_fluid, x_memb=x_memb, edge_attr=edge_attr)
 
 	def message(self, x_fluid_i, x_memb_j, edge_index, edge_attr):
-		query = self.W_Q(x_fluid_i)
-		key = self.W_K(x_memb_j)
-		value = self.W_V(x_memb_j)
+		query = self.W_Q(x_fluid_i) #[nEdges, attn_dim]
+		key = self.W_K(x_memb_j) #[nEdges, attn_dim]
+		value = self.W_V(x_memb_j) #[nEdges, attn_dim]
 
-		# # Need to figure this out.
-		score = (query * key).sum(dim=-1) * self.scale
-		alpha = torch.softmax(score, dim=0)
+		#Q^T K = (query * key).sum(dim=-1) and thn self.scale scales to not let it grow too fast
+		score = (query * key).sum(dim=-1) * self.scale #torch.Size([nEdges])
+
+		#torch.softmax summs for all nEdges and reducing information, so scatter only sums neighbours
+		alpha = scatter_softmax(score, edge_index[1], dim=0) 
 		
+		# I still have to use edge_attr 
 		return self.out_proj(value * alpha.unsqueeze(-1))
 
 class DenseNet(torch.nn.Module):

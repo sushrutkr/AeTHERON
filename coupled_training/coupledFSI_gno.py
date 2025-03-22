@@ -41,7 +41,7 @@ def main(checkpoint_path=None):
 		},
 		'flow_net': {
 			'inNodeFeatures'				: 1,
-			'nNodeFeatEmbedding'		: 16,
+			'nNodeFeatEmbedding'		: 10,
 			'nEdgeFeatures'					: 8,
 			'ker_width'							: 4
 		},
@@ -51,7 +51,7 @@ def main(checkpoint_path=None):
 	}
 	
 	params_training = {
-		'epochs' 								: 1,
+		'epochs' 								: 200,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
@@ -60,9 +60,9 @@ def main(checkpoint_path=None):
 	}
 
 	params_data = {
-		'location' 			: '../St045/',
 		'batch_size' 		: 6,
-		'ntsteps' 			: 4,
+		'ntsteps' 			: 3,
+		'val_split'			: 0.3
 	}
 
 	train_radius = {
@@ -76,7 +76,8 @@ def main(checkpoint_path=None):
 	# Load data
 	train_loader, val_loader, scaler = dataloader(train_radius, 
 																								params_data['batch_size'],
-																								params_data['ntsteps'])
+																								params_data['ntsteps'],
+																								params_data['val_split'])
 
 	# train_loader, val_loader, scaler = dataloader_test('../sample_data/', train_radius['radius_flow'], 
 	# 																									params_data['batch_size'], 
@@ -93,9 +94,11 @@ def main(checkpoint_path=None):
 	optimizer = torch.optim.Adam(model_instance.parameters(), 
 															lr=params_training['learning_rate'])
 
-	scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 
-																						 step_size=params_training['scheduler_step'], 
-																						 gamma=params_training['scheduler_gamma'])
+	# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 
+	# 																					 step_size=params_training['scheduler_step'], 
+	# 																					 gamma=params_training['scheduler_gamma'])
+
+	scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
 	criterion = torch.nn.MSELoss()
 
 	# model_instance = torch.compile(model_instance, dynamic=True)
@@ -178,7 +181,7 @@ def main(checkpoint_path=None):
 				torch.save(model_instance.state_dict(), 'best_model.pth')
 				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
 
-		scheduler.step()
+		scheduler.step(train_loss)
 
 
 if __name__ == "__main__":

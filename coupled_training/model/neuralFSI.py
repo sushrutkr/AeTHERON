@@ -77,7 +77,7 @@ class neuralFSI(nn.Module):
                                                     batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0))
 
     x_memb = self.decoder["memb"]( x_memb )
-    x_flow = self.decoder["flow"]( x_flow )
+    x_flow = batch['flow'].x + (batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0)) * self.decoder["flow"]( x_flow )
 
     #z_f_new = 0.5 * z_f + 0.5 * self.dec_f(...)  # Momentum preservation
     return x_flow, x_memb

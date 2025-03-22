@@ -190,7 +190,9 @@ class generateDatasetFluid:
   def scaling(self,scaler):
     self.scaler = scaler
     shape = self.combinedData.shape
-    self.combinedData = self.combinedData.reshape(shape[0], -1)
+
+    #Fortran type orderring for correct reshape
+    self.combinedData = self.combinedData.reshape(shape[0], -1, order='F')
     self.combinedData = self.scaler.fit_transform(self.combinedData)
     return self.scaler, self.combinedData
   
@@ -221,6 +223,8 @@ class RectilinearMeshGenerator(object):
     self.grid = np.vstack([real_space[0].flatten(order='F') - reference_coords[0], 
                            real_space[1].flatten(order='F') - reference_coords[1], 
                            real_space[2].flatten(order='F') - reference_coords[2]]).T
+    
+    # print("Grid : ", self.grid.shape, self.grid[53223,:])
     
   def ball_connectivity_old(self, r):
     #computationaly inefficient complex as it creates a full matrix first and then sample
@@ -329,3 +333,16 @@ class generateSharedData():
         ('membrane', 'to', 'flow'): edge_attr_mf
     }
   
+
+class DummyScaler:
+    def fit(self, data):
+        return self
+
+    def transform(self, data):
+        return data
+
+    def fit_transform(self, data):
+        return self.fit(data).transform(data)
+
+    def inverse_transform(self, data):
+        return data

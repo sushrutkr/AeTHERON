@@ -28,12 +28,11 @@ def get_timestep_embedding(t, d, structure):
 class time_conditioning(nn.Module):
 	def __init__(self, hidden_dim):
 		super(time_conditioning, self).__init__()
-
 		self.gamma = nn.Sequential(nn.Linear(1, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, hidden_dim))
-		self.lambda_ = nn.Sequential(nn.Linear(1, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, hidden_dim))	
+		self.lambda_ = nn.Sequential(nn.Linear(1, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, hidden_dim))
 
 	def forward(self, x, tau):
-		x = F.layer_norm(x,x.shape[1:]) #1: because layer_norm requires tu[]:plesof int and not int.
+		x = F.layer_norm(x, x.shape[1:]) #1: because layer_norm requires tu[]:plesof int and not int.
 		gamma_tau = self.gamma(tau.view(-1, 1))
 		lambda_tau = self.lambda_(tau.view(-1, 1))
 		x = (1 + tau * gamma_tau) * x + tau * lambda_tau	
