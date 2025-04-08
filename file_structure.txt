@@ -1,0 +1,27 @@
+coupled-fsi-training/
+├── src/
+│   ├── model/
+│   │   ├── neuralFSI.py
+│   │   ├── operators.py
+│   │   └── spectral.py
+│   ├── preprocessing/
+│   │   ├── dataload.py
+│   │   └── proc.ipynb
+│   └── training/
+│       ├── coupledFSI_gno.py
+│       ├── model_verification.py
+│       └── train_val_indices.csv
+├── data/
+│   └── sim_metadata.json
+├── logs/
+│   ├── log_original.dat
+│   ├── log.dat
+│   ├── model_epoch_100.pth
+│   └── model_epoch_2000.pth
+├── utils/
+│   ├── best_model.pth
+│   └── connectivity.py
+├── README.md
+├── requirements.txt
+├── LICENSE
+└── .gitignore
