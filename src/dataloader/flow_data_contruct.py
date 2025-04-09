@@ -13,11 +13,14 @@ import re
 class generateDatasetFluid:
   def __init__(self,pathName,splitLen=1):
     self.data = np.load(pathName+'data.npy')
+    self.nFeatures = 0
     self.nx = self.data.shape[2]
     self.ny = self.data.shape[3]
     self.nz = self.data.shape[4]
     self.ntsteps = self.data.shape[0]
     self.split = splitLen
+
+    #remember this function is also used to compute shard stats 
     self.combined_data()
 
   def combined_data(self):
@@ -26,6 +29,8 @@ class generateDatasetFluid:
     # for i in range(self.data.shape[0]):
     #   self.combinedData[i+1,:,:,:] = self.data[i,1,:,:,:]    
     self.combinedData = self.data[:,3:7,:,:,:] # u,v,w,p
+    self.nFeatures = self.combinedData.shape[1]
+
     return self.combinedData
   
   def get_grid_coords(self):
@@ -34,24 +39,36 @@ class generateDatasetFluid:
   
   def scaling(self,scaler):
     self.scaler = scaler
-    shape = self.combinedData.shape
+
+    shape = self.combinedData.shape #ntsteps, nfeatures, nx, ny, nz
 
     #Fortran type orderring for correct reshape
-    self.combinedData = self.combinedData.reshape(shape[0], -1, order='F')
-    self.combinedData = self.scaler.fit_transform(self.combinedData)
-    return self.scaler, self.combinedData
+    self.combinedData = self.combinedData.reshape(shape[0], shape[1], -1, order='F')
+
+    #Velocity Scaling
+    self.combinedData[:,0:3,:] = (self.combinedData[:,0:3,:] - self.scaler["velocity_mean"])/np.sqrt(self.scaler["velocity_variance"])
+
+    #pressure scaling
+    self.combinedData[:,3,:] = (self.combinedData[:,3,:] - self.scaler["pressure_mean"])/np.sqrt(self.scaler["pressure_variance"])
+    
+    print("Flow data size : ",self.combinedData.shape)
+
+    return self.combinedData
   
   def splitDataset(self):
     num_splits = self.ntsteps - self.split + 1
-    numNodes = self.combinedData.shape[1]
-    self.SplitData = np.zeros((num_splits, self.split, numNodes))
+    numNodes = self.combinedData.shape[2]
+    self.SplitData = np.zeros((num_splits, self.split, self.nFeatures, numNodes))
 
     for i in range(num_splits):
       #here, num_split is new data size and for each data point I extract pair from that timestep
       #corresponding to that data point to 1 before num split. 
       #then in the code I use the next timestep data.
-      self.SplitData[i,:,:] = self.combinedData[i:i+self.split,:]
+      self.SplitData[i,:,:,:] = self.combinedData[i:i+self.split,:,:]
 
+    return
+  
+  def getSplitData(self):
     return self.SplitData
 
 class RectilinearMeshGenerator(object):
@@ -109,8 +126,8 @@ class RectilinearMeshGenerator(object):
     # Gather grid and data values
     grid_i = self.grid[i]
     grid_j = self.grid[j]
-    data_i = self.data[k, 0, i].reshape(-1, 1)
-    data_j = self.data[k, 0, j].reshape(-1, 1)
+    data_i = self.data[k,0,:,i]
+    data_j = self.data[k,0,:,j]
 
     edge_attr = np.concatenate((grid_i, grid_j, data_i, data_j), axis=1)
 

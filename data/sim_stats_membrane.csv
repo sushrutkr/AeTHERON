@@ -1,2 +1,2 @@
-sim_id,velocity_mean,velocity_variance,force_mean,force_variance,pointMass_min,pointMass_max,max_coordinate,min_coordinate,nNodes,ntsteps
-h02_St04,-0.015103683340875146,1.071070650697106,-0.00014701690699184925,5.683156640803011e-07,<built-in method flatten of numpy.ndarray object at 0x7c30b360f210>,<built-in method flatten of numpy.ndarray object at 0x7c30b360f210>,21.0164,19.2997,1757,200
+sim_id,velocity_mean,velocity_variance,force_mean,force_variance,pressure_mean,pressure_variance,pointMass_min,pointMass_max,max_coordinate,min_coordinate,nNodes,ntsteps
+h02_St04,0.1827452084352446,1.1826943110804655,-0.00033980316458498574,7.083026839893678e-06,-0.8324219114598748,13.967648127649827,2.9308578345248092e-06,1.5886826994136735e-05,20.8977,19.2997,1757,6

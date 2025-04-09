@@ -41,7 +41,7 @@ class neuralFSI(nn.Module):
     })
 
     self.decoder = nn.ModuleDict({
-      "flow" : nn.Sequential(nn.Linear(params['flow_net']['nNodeFeatEmbedding'],params['flow_net']['inNodeFeatures'])),
+      "flow" : nn.Sequential(nn.Linear(params['flow_net']['nNodeFeatEmbedding'],params['flow_net']['outNodeFeatures'])),
       "memb" : nn.Sequential(nn.Linear(params['memb_net']['nNodeFeatEmbedding'],params['memb_net']['inNodeFeatures']))
     })
 

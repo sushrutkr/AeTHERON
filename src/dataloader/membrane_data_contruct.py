@@ -25,6 +25,7 @@ class generateDatasetMembrane:
     self.nNodes, self.nElem = generateDatasetMembrane.obtainNnodesAndElem(fnameMesh)
     self.AllNodes = np.zeros(shape=(self.nNodes, 3, self.ntsteps))
     self.AllVel = np.zeros(shape=(self.nNodes, 3, self.ntsteps))
+    self.AllPressure = np.zeros(shape=(self.nNodes, self.ntsteps))
     self.AllForce = np.zeros(shape=(self.nNodes, 3, self.ntsteps))
     self.AllElem = np.zeros(shape=(self.nElem, 3, self.ntsteps))
     self.SplitNodes = np.array([])
@@ -33,7 +34,6 @@ class generateDatasetMembrane:
     self.BCNodes = self.get_bc_node_info()
     self.compileData()
     self.calculate_point_mass(thickness=0.02,density=1)
-    self.splitData()
 
   @staticmethod
   def obtainNnodesAndElem(fnameMesh):
@@ -68,7 +68,7 @@ class generateDatasetMembrane:
       for i in range(3):
         nodeIndex = self.elem[iElem,i] - 1
         self.pointMass[nodeIndex] += mass/3
-     
+    
     return
   
   def get_bc_node_info(self):
@@ -82,11 +82,30 @@ class generateDatasetMembrane:
       self.readFiles(fnameMesh)
       self.AllNodes[:, :, l] = self.nodes[:, 0:3]
       self.AllVel[:, :, l] = self.nodes[:, 3:6]
+      self.AllPressure[:, l] = self.nodes[:, 6]
       self.AllForce[:, :, l] = self.nodes[:, 7:10]
       self.AllElem[:, :, l] = self.elem[:, 0:3]
       l += 1
 
     self.AllElem = np.array(self.AllElem, dtype=int)
+
+  def scaling(self,scaler):
+    # scaling node coords
+    # Although I have max and min coords available I will not be using it because that disturb the scaling of flow coords
+    self.AllNodes[:, :, :] -= 20
+
+    # scaling velocity
+    self.AllVel = (self.AllVel - scaler["velocity_mean"])/np.sqrt(scaler["velocity_variance"])
+
+    # scaling pressure
+    self.AllPressure = (self.AllPressure - scaler["pressure_mean"])/np.sqrt(scaler["pressure_variance"])
+
+    # scaling force
+    self.AllForce = (self.AllForce - scaler["force_mean"])/np.sqrt(scaler["force_variance"])
+
+    # scaling pointMass
+    self.pointMass = (self.pointMass - scaler["pointMass_min"])/(scaler["pointMass_max"] - scaler["pointMass_min"])
+
 
   def splitData(self):
     numNodes, coords, ntsteps = self.AllNodes.shape
@@ -94,26 +113,29 @@ class generateDatasetMembrane:
     
     self.SplitNodes = np.zeros((num_splits, numNodes, self.split, coords))
     self.SplitVel = np.zeros((num_splits, numNodes, self.split, coords))
+    self.SplitPressure = np.zeros((num_splits, numNodes, self.split))
     self.SplitExtForce = np.zeros((num_splits, numNodes, self.split, coords))
     
     for i in range(num_splits):
       self.SplitNodes[i] = self.AllNodes[:, :, i:i+self.split].transpose(0, 2, 1)
       self.SplitVel[i] = self.AllVel[:, :, i:i+self.split].transpose(0, 2, 1)
+      self.SplitPressure[i] = self.AllPressure[:, i:i+self.split].transpose(0, 1)
       self.SplitExtForce[i] = self.AllForce[:, :, i:i+self.split].transpose(0, 2, 1)
     
     self.SplitElem = self.AllElem[:, :, 0]
 
   def get_output_split(self):
-    return self.SplitNodes, self.SplitVel, self.SplitExtForce, self.SplitElem, np.expand_dims(self.pointMass, axis=1), self.BCNodes
+    return self.SplitNodes, self.SplitVel, self.SplitPressure, self.SplitExtForce, self.SplitElem, np.expand_dims(self.pointMass, axis=1), self.BCNodes
   
   def get_output_full(self):
-    return self.AllNodes, self.AllVel, self.AllForce, np.expand_dims(self.pointMass, axis=1), self.AllElem
+    return self.AllNodes, self.AllVel, self.AllPressure, self.AllForce, np.expand_dims(self.pointMass, axis=1), self.AllElem
 
 class unstructMeshGenerator():
-  def __init__(self,nodes,vel,forceExt,pointMass,elem,bc_nodes):
+  def __init__(self,nodes,vel,pressure,forceExt,pointMass,elem,bc_nodes):
     self.nodes = nodes #[ntsteps/batches, nNodes, input-output, features]
     self.elem = elem #[nElem, connections]
     self.vel = vel
+    self.pressure = pressure
     self.forceExt = forceExt
     self.pointMass = pointMass
     self.nNodes = len(self.nodes[0,:,0,0])
@@ -132,7 +154,7 @@ class unstructMeshGenerator():
     return self.edge_index
   
   def attributes(self,k):
-    #shape of node data (e.g. coords) - (100, 1757, 2, 3)
+    #shape of node data (e.g. coords) - (ntsteps, nNodes, input-output(s), vector component)
     edge_attr = np.zeros((self.n_edges, 7))
     for n, (i,j) in enumerate(self.edge_index.transpose()):
         edge_attr[n,:] = np.array([
@@ -152,10 +174,15 @@ class unstructMeshGenerator():
   def getInputOutput(self,k):
     input = np.concatenate((self.nodes[k, :, 0, :], 
                             self.vel[k, :, 0, :], 
+                            np.expand_dims(self.pressure[k,:,0], axis=1),
                             self.forceExt[k, :, 0, :],
                             self.pointMass[:]),
                             axis=1)
-    output = np.concatenate((self.nodes[k, :, 1:, :], self.vel[k, :, 1:, :], self.forceExt[k, :, 1:, :]), axis=2) #1: is to extract next timestep data
+    
+    output = np.concatenate((self.nodes[k, :, 1:, :], 
+                             self.vel[k, :, 1:, :], 
+                             np.expand_dims(self.pressure[k,:,1:], axis=2),
+                             self.forceExt[k, :, 1:, :]), axis=2) #1: is to extract next timestep data
     output = np.transpose(output, (1, 0, 2))
 
     bc = np.ones(shape=(self.nNodes,7)) # 7 - [flag, 3 coords, 3 vels], no need for force as that's going to come from flow

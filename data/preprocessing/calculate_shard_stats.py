@@ -6,6 +6,7 @@ import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 from dataloader.membrane_data_contruct import generateDatasetMembrane
+from dataloader.flow_data_contruct import generateDatasetFluid
 
 def calc_mean_variance(data, type=None):
   """
@@ -37,7 +38,9 @@ def main():
   
   """
 
-  stats_list = []
+  stats_list_membrane = []
+  stats_list_flow = []
+
   with open("./data/sim_metadata.json", "r") as f:
     metadata = json.load(f)
 
@@ -54,42 +57,56 @@ def main():
                                               splitLen=1, 
                                               folder=sim_params["memb_file"]).get_output_full()
       
-      nNodes = membrane_data[0].shape[0]
-      ntsteps = membrane_data[0].shape[2]
+      velocity_stats = calc_mean_variance(membrane_data[1].transpose(1,0,2),type="vector")
+      pressure_stats = calc_mean_variance(membrane_data[2].transpose(1,0),type="scalar")
+      force_stats = calc_mean_variance(membrane_data[3].transpose(1,0,2),type="vector")
 
-      pointMass_min = np.min(membrane_data[3].flatten)
-      pointMass_max = np.max(membrane_data[3].flatten)
+      sim_stats_membrane = {
+        "sim_id": sim_params["sim_id"],
+        "velocity_mean": velocity_stats[0],
+        "velocity_variance": velocity_stats[1],
+        "force_mean": force_stats[0],
+        "force_variance": force_stats[1],
+        "pressure_mean": pressure_stats[0],
+        "pressure_variance": pressure_stats[1],
+        "pointMass_min": np.min(membrane_data[4].flatten()),
+        "pointMass_max": np.max(membrane_data[4].flatten()),
+        "max_coordinate": np.max([np.max(membrane_data[0][:,0,:]),
+                                  np.max(membrane_data[0][:,1,:]),
+                                  np.max(membrane_data[0][:,2,:])]),
+        "min_coordinate": np.min([np.min(membrane_data[0][:,0,:]),
+                                  np.min(membrane_data[0][:,1,:]),
+                                  np.min(membrane_data[0][:,2,:])]),
+        "nNodes": membrane_data[0].shape[0],
+        "ntsteps": membrane_data[0].shape[2]
+        }
 
-      max_coordinate = np.max([np.max(membrane_data[0][:,0,:]),
-                               np.max(membrane_data[0][:,1,:]),
-                               np.max(membrane_data[0][:,2,:])])
+      flow_data = generateDatasetFluid(pathName=sim_params["flow_file"],splitLen=1).combined_data()
+      ntsteps, nfeatures, nx, ny, nz = flow_data.shape
+      flow_data = flow_data.reshape(ntsteps, nfeatures, nx * ny * nz)
 
-      min_coordinate = np.min([np.min(membrane_data[0][:,0,:]),
-                               np.min(membrane_data[0][:,1,:]),
-                               np.min(membrane_data[0][:,2,:])])
+      velocity_stats = calc_mean_variance(flow_data.transpose(1,0,2)[0:3],type="vector")
+      pressure_stats = calc_mean_variance(flow_data.transpose(1,0,2)[3],type="scalar")
+      sim_stats_flow = {
+        "sim_id": sim_params["sim_id"],
+        "velocity_mean": velocity_stats[0],
+        "velocity_variance": velocity_stats[1],
+        "pressure_mean": pressure_stats[0],
+        "pressure_variance": pressure_stats[1],
+        "nNodes": flow_data.shape[2],
+        "ntsteps": flow_data.shape[0]
+        }
+      
+      del membrane_data, flow_data
 
-      velocity = calc_mean_variance(membrane_data[1].transpose(1,0,2),type="vector")
-      force = calc_mean_variance(membrane_data[2].transpose(1,0,2),type="vector")
-
-      sim_stats = {
-                  "sim_id": sim_params["sim_id"],
-                  "velocity_mean": velocity[0],
-                  "velocity_variance": velocity[1],
-                  "force_mean": force[0],
-                  "force_variance": force[1],
-                  "pointMass_min": pointMass_min,
-                  "pointMass_max": pointMass_max,
-                  "max_coordinate": max_coordinate,
-                  "min_coordinate": min_coordinate,
-                  "nNodes": nNodes,
-                  "ntsteps": ntsteps
-              }
-      del membrane_data
-
-  stats_list.append(sim_stats)
-  stats_df = pd.DataFrame(stats_list)
+  stats_list_membrane.append(sim_stats_membrane)
+  stats_df = pd.DataFrame(stats_list_membrane)
   stats_df.to_csv("./data/sim_stats_membrane.csv", index=False)
-                                               
+
+  stats_list_flow.append(sim_stats_flow)
+  stats_df = pd.DataFrame(stats_list_flow)
+  stats_df.to_csv("./data/sim_stats_flow.csv", index=False)
+
   return
 
 

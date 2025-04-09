@@ -1,5 +1,5 @@
-# Standard library imports
 import os
+import sys
 import random
 from timeit import default_timer
 import numpy as np
@@ -9,12 +9,13 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from model.neuralFSI import *
-from preprocessing.dataload import *
-# from model_standalone.spectralGraphNetwork import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from torch_geometric.data import HeteroData
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+from model.neuralFSI import *
+from dataloader.dataload import *
 
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:512'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -34,15 +35,17 @@ def main(checkpoint_path=None):
 	# Parameters
 	params_network = {
 		'memb_net': {
-			'inNodeFeatures'				: 9,
+			'inNodeFeatures'				: 10, #Current keeping same as out dimension because we want to obtain latent dimension of output
 			'nNodeFeatEmbedding'		: 16,
-			'nEdgeFeatures'					: 12,
+			'outNodeFeatures'				: 10,
+			'nEdgeFeatures'					: 7,
 			'ker_width'							: 8
 		},
 		'flow_net': {
-			'inNodeFeatures'				: 1,
+			'inNodeFeatures'				: 4,
 			'nNodeFeatEmbedding'		: 10,
-			'nEdgeFeatures'					: 8,
+			'outNodeFeatures'				: 4,
+			'nEdgeFeatures'					: 14,
 			'ker_width'							: 4
 		},
 		'attn_dim'								: 16, #found 16 to be a better value compared to 8, 24, 32,
@@ -61,12 +64,12 @@ def main(checkpoint_path=None):
 
 	params_data = {
 		'batch_size' 		: 6,
-		'ntsteps' 			: 2,
+		'ntsteps' 			: 2, #extra from current one
 		'val_split'			: 0.3
 	}
 
 	train_radius = {
-		'radius_flow' 	: 0.1,		 # keeping it >=
+		'radius_flow' 	: 0.04,		 # keeping it >=
 		'radius_memb'		: 0.04,		 #makes sense to keep <= 2X\Delta_memb
 		'radius_cross'  : 0.04     #makes sense to keep <= 2X\Delta_memb
 	}
