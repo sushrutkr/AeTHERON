@@ -32,13 +32,9 @@ class neuralFSI(nn.Module):
     #   params['memb_net']['ker_width'],
     #   params['memb_net']['nlayers']
     #   )
-    
-    self.layer_flow = FlowGNO(params)
 
-    self.time_condition = nn.ModuleDict({
-      "flow" : time_conditioning(params['flow_net']['nNodeFeatEmbedding'])#,
-      # "memb" : time_conditioning(params['memb_net']['nNodeFeatEmbedding'])
-    })
+    self.layers = nn.ModuleList([FlowEvolve(params) for _ in range(params['nlayers'])])
+
 
     self.decoder = nn.ModuleDict({
       "flow" : nn.Sequential(nn.Linear(params['flow_net']['nNodeFeatEmbedding'],params['flow_net']['outNodeFeatures'])),
@@ -71,17 +67,40 @@ class neuralFSI(nn.Module):
       "memb" : x_memb
     }
 
-    for i in range(self.params['nlayers']):
-      x_flow = F.relu(self.layer_flow(node_feat, flow_edge_index, flow_edge_attr))
-      x_flow = x_flow + self.time_condition["flow"](x_flow, 
-                                                    batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0))
+    tau = batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0)
+    for layer in self.layers:
+                x_flow = layer(x_flow, node_feat, flow_edge_index, flow_edge_attr, tau)
+
+    # for i in range(self.params['nlayers']):
+    #   x_flow = F.relu(self.layer_flow(node_feat, flow_edge_index, flow_edge_attr))
+    #   x_flow = x_flow + self.time_condition["flow"](x_flow, 
+    #                                                 batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0))
 
     x_memb = self.decoder["memb"]( x_memb )
     x_flow = batch['flow'].x + (batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0)) * self.decoder["flow"]( x_flow )
 
     #z_f_new = 0.5 * z_f + 0.5 * self.dec_f(...)  # Momentum preservation
     return x_flow, x_memb
-  
+
+class FlowEvolve(nn.Module):
+  def __init__(self, params):
+    super(FlowEvolve, self).__init__()
+    self.layer_flow = FlowGNO(params)
+
+    self.time_condition = nn.ModuleDict({
+      "flow" : time_conditioning(params['flow_net']['nNodeFeatEmbedding'])#,
+      # "memb" : time_conditioning(params['memb_net']['nNodeFeatEmbedding'])
+    })
+
+  def forward(self, x_flow, node_feat, edge_index, edge_attr, tau):
+    # GNO step
+    gno_out = F.relu(self.layer_flow(node_feat, edge_index, edge_attr))
+
+    # Time conditioning
+    time_out = self.time_condition["flow"](gno_out, tau)
+
+    # Residual connection (input + output)
+    return x_flow + F.silu(time_out)  # Swish for smoothness, maybe Relu but have to see 
 
 class FlowGNO(nn.Module):
   def __init__(self, params) -> None:
@@ -94,11 +113,12 @@ class FlowGNO(nn.Module):
                        params['flow_net']['nNodeFeatEmbedding']**2], 
                        torch.nn.ReLU)
 
-    #initializeGNO
+    #initializeGNO - Flow Flow
     self.intraMessageLayer = intraMessagePassing(params['flow_net']['nNodeFeatEmbedding'], 
                                                  params['flow_net']['nNodeFeatEmbedding'], 
                                                  kernel)
     
+    #initializeGNO - Mwmbrane Flow
     self.crossMessageLayer = crossAttnMessagePassing(params['memb_net']['nNodeFeatEmbedding'], 
                                                      params['flow_net']['nNodeFeatEmbedding'], 
                                                      params['attn_dim'])

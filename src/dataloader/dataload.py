@@ -290,11 +290,9 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 					data_train.append(data)
 
 		torch.save(data_train, "/mnt/Sushrut/data_train_cache.pt")
-		torch.save(scaler, "scaler.pt")
 	else:
 		print(f"Loading cached data from {cache_file}")
 		data_train = torch.load(cache_file)
-		scaler = torch.load("scaler.pt")
 
 	print(len(data_train))
 	indices = np.arange(len(data_train))
@@ -302,7 +300,7 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 	num_val_samples = int(len(data_train) * val_split)
 	val_indices = indices[:num_val_samples]
 	train_indices = indices[num_val_samples:]
-	with open('train_val_indices.csv', 'w') as f:
+	with open('./data/train_val_indices.csv', 'w') as f:
 		f.write(f'Train indices: {train_indices}\n')
 		f.write(f'Val indices: {val_indices}\n')
 

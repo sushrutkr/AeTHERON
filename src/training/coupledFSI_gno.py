@@ -36,25 +36,25 @@ def main(checkpoint_path=None):
 	params_network = {
 		'memb_net': {
 			'inNodeFeatures'				: 10, #Current keeping same as out dimension because we want to obtain latent dimension of output
-			'nNodeFeatEmbedding'		: 16,
+			'nNodeFeatEmbedding'		: 32,
 			'outNodeFeatures'				: 10,
 			'nEdgeFeatures'					: 7,
 			'ker_width'							: 8
 		},
 		'flow_net': {
 			'inNodeFeatures'				: 4,
-			'nNodeFeatEmbedding'		: 10,
+			'nNodeFeatEmbedding'		: 32,
 			'outNodeFeatures'				: 4,
 			'nEdgeFeatures'					: 14,
 			'ker_width'							: 4
 		},
-		'attn_dim'								: 16, #found 16 to be a better value compared to 8, 24, 32,
+		'attn_dim'								: 32, #found 16 to be a better value compared to 8, 24, 32,
 		'nlayers'									: 8,
 		'time_embedding_dim'			: 8
 	}
 	
 	params_training = {
-		'epochs' 								: 2,
+		'epochs' 								: 500,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
@@ -81,7 +81,7 @@ def main(checkpoint_path=None):
 																								params_data['batch_size'],
 																								params_data['ntsteps'],
 																								params_data['val_split'],
-																								loadData = False)
+																								loadData = True)
 	
 
 	# train_loader, val_loader, scaler = dataloader_test('../sample_data/', train_radius['radius_flow'], 
@@ -162,7 +162,7 @@ def main(checkpoint_path=None):
 				'scheduler_state_dict': scheduler.state_dict(),
 				'train_loss': avg_train_loss,
 				'val_loss': best_val_loss
-			}, f'model_epoch_{epoch+1}.pth')
+			}, f'./utils/model_epoch_{epoch+1}.pth')
 			print(f"Model saved at epoch {epoch+1}")
 
 		# Validation
@@ -188,7 +188,7 @@ def main(checkpoint_path=None):
 			# Save best model
 			if avg_val_loss < best_val_loss:
 				best_val_loss = avg_val_loss
-				torch.save(model_instance.state_dict(), 'best_model.pth')
+				torch.save(model_instance.state_dict(), './utils/best_model.pth')
 				print(f"Best model saved with validation loss: {best_val_loss:.6f}")
 
 		scheduler.step()
