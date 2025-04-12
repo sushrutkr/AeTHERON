@@ -1,2 +1,2 @@
-sim_id,velocity_mean,velocity_variance,pressure_mean,pressure_variance,nNodes,ntsteps
-h02_St04,1.0353489,2.205845922397041,-0.008381713,0.022744516,95718,200
+sim_id,velocity_scale,pressure_scale,nNodes,ntsteps
+h02_St04,0.5455631017684937,0.2517735585570336,95718,101

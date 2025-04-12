@@ -69,7 +69,7 @@ class neuralFSI(nn.Module):
 
     tau = batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0)
     for layer in self.layers:
-                x_flow = layer(x_flow, node_feat, flow_edge_index, flow_edge_attr, tau)
+      x_flow = layer(x_flow, node_feat, flow_edge_index, flow_edge_attr, tau)
 
     # for i in range(self.params['nlayers']):
     #   x_flow = F.relu(self.layer_flow(node_feat, flow_edge_index, flow_edge_attr))

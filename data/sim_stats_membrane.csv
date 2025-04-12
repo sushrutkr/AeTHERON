@@ -1,2 +1,2 @@
-sim_id,velocity_mean,velocity_variance,force_mean,force_variance,pressure_mean,pressure_variance,pointMass_min,pointMass_max,max_coordinate,min_coordinate,nNodes,ntsteps
-h02_St04,0.1827452084352446,1.1826943110804655,-0.00033980316458498574,7.083026839893678e-06,-0.8324219114598748,13.967648127649827,2.9308578345248092e-06,1.5886826994136735e-05,20.8977,19.2997,1757,6
+sim_id,velocity_scale,force_scale,pressure_scale,pointMass_min,pointMass_max,max_coordinate,min_coordinate,nNodes,ntsteps
+h02_St04,1.6170096499463773,0.0010247231629326677,1.6684879999999993,2.912864897286805e-06,1.5561310920029288e-05,21.0164,19.2997,1757,101

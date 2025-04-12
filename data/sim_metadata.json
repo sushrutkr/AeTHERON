@@ -4,7 +4,7 @@
     "memb_file"           : "/mnt/Sushrut/TrainingData/h02_St04/membData/",
     "flow_file"           : "/mnt/Sushrut/TrainingData/h02_St04/",
     "dt"                  : 0.02,
-    "start"               : 10,
+    "start"               : 1000,
     "end"                 : 2000,
     "gap"                 : 10
   }

@@ -7,6 +7,7 @@ from torch_geometric.data import Data
 import torch.nn as nn
 from scipy.ndimage import gaussian_filter
 from sklearn.neighbors import BallTree
+import matplotlib.pyplot as plt
 import os
 import re
 
@@ -31,6 +32,11 @@ class generateDatasetFluid:
     self.combinedData = self.data[:,3:7,:,:,:] # u,v,w,p
     self.nFeatures = self.combinedData.shape[1]
 
+    shape = self.combinedData.shape #ntsteps, nfeatures, nx, ny, nz
+
+    #Fortran type orderring for correct reshape
+    self.combinedData = self.combinedData.reshape(shape[0], shape[1], -1, order='F')
+
     return self.combinedData
   
   def get_grid_coords(self):
@@ -40,17 +46,30 @@ class generateDatasetFluid:
   def scaling(self,scaler):
     self.scaler = scaler
 
-    shape = self.combinedData.shape #ntsteps, nfeatures, nx, ny, nz
-
-    #Fortran type orderring for correct reshape
-    self.combinedData = self.combinedData.reshape(shape[0], shape[1], -1, order='F')
-
     #Velocity Scaling
-    self.combinedData[:,0:3,:] = (self.combinedData[:,0:3,:] - self.scaler["velocity_mean"])/np.sqrt(self.scaler["velocity_variance"])
+    #subtracting mean flow
+    self.combinedData[:,0,:] = (self.combinedData[:,0,:]-1)/self.scaler["velocity_scale"] 
+    self.combinedData[:,1:3,:] = self.combinedData[:,1:3,:]/self.scaler["velocity_scale"]
 
     #pressure scaling
-    self.combinedData[:,3,:] = (self.combinedData[:,3,:] - self.scaler["pressure_mean"])/np.sqrt(self.scaler["pressure_variance"])
-    
+    self.combinedData[:,3,:] = self.combinedData[:,3,:]/self.scaler["pressure_scale"]
+
+    #clip to restrict large ranges
+    self.combinedData = np.clip(self.combinedData,-2,2)
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+    axes[0, 0].hist(self.combinedData[:,0,:].flatten(), bins=500, density=True, alpha=0.7, color='blue')
+    axes[0, 0].set_title("Flow U - 1")
+    axes[0, 1].hist(self.combinedData[:,1,:].flatten(), bins=500, density=True, alpha=0.7, color='green')
+    axes[0, 1].set_title("Flow U - 2")
+    axes[1, 0].hist(self.combinedData[:,2,:].flatten(), bins=500, density=True, alpha=0.7, color='red')
+    axes[1, 0].set_title("Flow U - 3")
+    axes[1, 1].hist(self.combinedData[:,3,:].flatten(), bins=500, density=True, alpha=0.7, color='red')
+    axes[1, 1].set_title("Flow P")
+    plt.tight_layout()
+    plt.savefig("./logs/flow_hist.png")
+    plt.close()
+
     print("Flow data size : ",self.combinedData.shape)
 
     return self.combinedData

@@ -9,6 +9,7 @@ from scipy.ndimage import gaussian_filter
 from sklearn.neighbors import BallTree
 import os
 import re
+import matplotlib.pyplot as plt
 
 class generateDatasetMembrane:
   def __init__(self, ninit, nend, ngap, splitLen=1, folder="./"):
@@ -93,19 +94,37 @@ class generateDatasetMembrane:
     # scaling node coords
     # Although I have max and min coords available I will not be using it because that disturb the scaling of flow coords
     self.AllNodes[:, :, :] -= 20
-
+    
     # scaling velocity
-    self.AllVel = (self.AllVel - scaler["velocity_mean"])/np.sqrt(scaler["velocity_variance"])
+    self.AllVel = self.AllVel/scaler["velocity_scale"]
 
     # scaling pressure
-    self.AllPressure = (self.AllPressure - scaler["pressure_mean"])/np.sqrt(scaler["pressure_variance"])
+    self.AllPressure = self.AllPressure/scaler["pressure_scale"]
 
     # scaling force
-    self.AllForce = (self.AllForce - scaler["force_mean"])/np.sqrt(scaler["force_variance"])
+    self.AllForce = self.AllForce/scaler["force_scale"]
 
     # scaling pointMass
     self.pointMass = (self.pointMass - scaler["pointMass_min"])/(scaler["pointMass_max"] - scaler["pointMass_min"])
 
+    fig, axes = plt.subplots(4, 3, figsize=(15, 12))
+    for i in range(3):
+      axes[0, i].hist(self.AllNodes[:,i,:].flatten(), bins=500, density=True, alpha=0.7, color='blue')
+      axes[0, i].set_title("Membrane X - %i"%(i+1))
+    for i in range(3):
+      axes[1, i].hist(self.AllVel[:,i,:].flatten(), bins=500, density=True, alpha=0.7, color='blue')
+      axes[1, i].set_title("Membrane U - %i"%(i+1))
+    for i in range(3):
+      axes[2, i].hist(self.AllForce[:,i,:].flatten(), bins=500, density=True, alpha=0.7, color='blue')
+      axes[2, i].set_title("Membrane F - %i"%(i+1))
+    axes[3, 0].hist(self.AllPressure.flatten(), bins=500, density=True, alpha=0.7, color='blue')
+    axes[3, 0].set_title("Membrane P")
+    axes[3, 1].hist(self.pointMass.flatten(), bins=500, density=True, alpha=0.7, color='blue')
+    axes[3, 1].set_title("Membrane mass")
+    axes[3, 2].axis('off')
+    plt.tight_layout()
+    plt.savefig("./logs/membrane_hist.png")
+    plt.close()
 
   def splitData(self):
     numNodes, coords, ntsteps = self.AllNodes.shape

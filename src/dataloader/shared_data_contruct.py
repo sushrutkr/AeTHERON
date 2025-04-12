@@ -55,6 +55,8 @@ class generateSharedData():
     i = edge_index[1] #Because 1st is the reciever flow node
     j = edge_index[0] #Because 0th is the sender flow node
 
+    # print(edge_index[:, i == 53222])
+
     edge_attr_mf = np.vstack([
             self.flow_grid[i, 0] - self.graph2[j, 0],
             self.flow_grid[i, 1] - self.graph2[j, 1],

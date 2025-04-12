@@ -79,28 +79,78 @@ class obtain_global_statistics():
 		between_variance = (shard_size * (shard_mean - global_mean)**2).sum()
 		return (within_variance + between_variance) / total_size
 	
+	@staticmethod
+	def compute_global_percentile(shard_percentiles, shard_size=None):
+		"""
+		Compute the global 95th percentile from per-shard 95th percentiles.
+		
+		Args:
+				shard_percentiles (pd.Series): 95th percentiles for each shard (e.g., velocity_scale).
+				shard_size (pd.Series, optional): Number of node-timestep pairs in each shard (nNodes * ntsteps).
+						If provided, weights the percentiles by shard size.
+		
+		Returns:
+				float: Global 95th percentile.
+		"""
+		if len(shard_percentiles) == 0:
+			raise ValueError("Shard percentiles cannot be empty.")
+		
+		if shard_size is not None:
+			if len(shard_size) != len(shard_percentiles):
+				raise ValueError("shard_size must have the same length as shard_percentiles.")
+			total_size = shard_size.sum()
+			if total_size == 0:
+				raise ValueError("Total shard size cannot be zero.")
+			
+			# Approximate the global 95th percentile by weighting the per-shard percentiles
+			# This is an approximation, as we don't have the full distribution
+			sorted_indices = np.argsort(shard_percentiles.values)
+			sorted_percentiles = shard_percentiles.values[sorted_indices]
+			sorted_sizes = shard_size.values[sorted_indices]
+			cumulative_sizes = np.cumsum(sorted_sizes)
+			target_size = 0.95 * total_size
+			# Find the percentile value where the cumulative size reaches 95% of the total
+			idx = np.searchsorted(cumulative_sizes, target_size, side="right")
+			if idx == 0:
+				return sorted_percentiles[0]
+			elif idx >= len(sorted_percentiles):
+				return sorted_percentiles[-1]
+			else:
+				# Linear interpolation between the two nearest percentiles
+				fraction = (target_size - cumulative_sizes[idx-1]) / (cumulative_sizes[idx] - cumulative_sizes[idx-1])
+				return sorted_percentiles[idx-1] + fraction * (sorted_percentiles[idx] - sorted_percentiles[idx-1])
+	
+		else:
+			# If shard_size is not provided, simply take the 95th percentile of the per-shard percentiles
+			return np.percentile(shard_percentiles, 95)
+
 	def compute_flow_stats(self):
 		"""
 		Compute global statistics for the flow dataset.
 		"""
+		
 		shard_size = self.df_flow['nNodes'] * self.df_flow['ntsteps']
 		
-		# Compute global means first
-		velocity_global_mean = self.global_mean(self.df_flow["velocity_mean"], shard_size)
-		pressure_global_mean = self.global_mean(self.df_flow["pressure_mean"], shard_size)
+		self.flow_stats["velocity_scale"] = obtain_global_statistics.compute_global_percentile(self.df_flow["velocity_scale"], shard_size)
+		self.flow_stats["pressure_scale"] = obtain_global_statistics.compute_global_percentile(self.df_flow["pressure_scale"], shard_size)
+
+		#old standardisation code		
+		# # Compute global means first
+		# velocity_global_mean = self.global_mean(self.df_flow["velocity_mean"], shard_size)
+		# pressure_global_mean = self.global_mean(self.df_flow["pressure_mean"], shard_size)
 		
-		# Compute global variances using the global means
-		self.flow_stats["velocity_mean"] = velocity_global_mean
-		self.flow_stats["velocity_variance"] = self.global_variance(
-				self.df_flow["velocity_variance"], shard_size, 
-				shard_mean=self.df_flow["velocity_mean"], global_mean=velocity_global_mean
-		)
-		self.flow_stats["pressure_mean"] = pressure_global_mean
-		self.flow_stats["pressure_variance"] = self.global_variance(
-				self.df_flow["pressure_variance"], shard_size, 
-				shard_mean=self.df_flow["pressure_mean"], global_mean=pressure_global_mean
-		)
-		
+		# # Compute global variances using the global means
+		# self.flow_stats["velocity_mean"] = velocity_global_mean
+		# self.flow_stats["velocity_variance"] = self.global_variance(
+		# 		self.df_flow["velocity_variance"], shard_size, 
+		# 		shard_mean=self.df_flow["velocity_mean"], global_mean=velocity_global_mean
+		# )
+		# self.flow_stats["pressure_mean"] = pressure_global_mean
+		# self.flow_stats["pressure_variance"] = self.global_variance(
+		# 		self.df_flow["pressure_variance"], shard_size, 
+		# 		shard_mean=self.df_flow["pressure_mean"], global_mean=pressure_global_mean
+		# )
+
 		return
 
 	def compute_memb_stats(self):
@@ -109,32 +159,39 @@ class obtain_global_statistics():
 		"""
 		shard_size = self.df_memb['nNodes'] * self.df_memb['ntsteps']
 		
-		# Compute global means first
-		velocity_global_mean = self.global_mean(self.df_memb["velocity_mean"], shard_size)
-		force_global_mean = self.global_mean(self.df_memb["force_mean"], shard_size)
+		#old standardisation code
+		# # Compute global means first
+		# velocity_global_mean = self.global_mean(self.df_memb["velocity_mean"], shard_size)
+		# force_global_mean = self.global_mean(self.df_memb["force_mean"], shard_size)
 		
-		# Compute global variances using the global means
-		self.memb_stats["velocity_mean"] = velocity_global_mean
-		self.memb_stats["velocity_variance"] = self.global_variance(
-				self.df_memb["velocity_variance"], shard_size, 
-				shard_mean=self.df_memb["velocity_mean"], global_mean=velocity_global_mean
-		)
+		# # Compute global variances using the global means
+		# self.memb_stats["velocity_mean"] = velocity_global_mean
+		# self.memb_stats["velocity_variance"] = self.global_variance(
+		# 		self.df_memb["velocity_variance"], shard_size, 
+		# 		shard_mean=self.df_memb["velocity_mean"], global_mean=velocity_global_mean
+		# )
 
-		self.memb_stats["pressure_mean"] = velocity_global_mean
-		self.memb_stats["pressure_variance"] = self.global_variance(
-				self.df_memb["pressure_variance"], shard_size, 
-				shard_mean=self.df_memb["pressure_mean"], global_mean=velocity_global_mean
-		)
+		# self.memb_stats["pressure_mean"] = velocity_global_mean
+		# self.memb_stats["pressure_variance"] = self.global_variance(
+		# 		self.df_memb["pressure_variance"], shard_size, 
+		# 		shard_mean=self.df_memb["pressure_mean"], global_mean=velocity_global_mean
+		# )
 
-		self.memb_stats["force_mean"] = force_global_mean
-		self.memb_stats["force_variance"] = self.global_variance(
-				self.df_memb["force_variance"], shard_size, 
-				shard_mean=self.df_memb["force_mean"], global_mean=force_global_mean
-		)
+		# self.memb_stats["force_mean"] = force_global_mean
+		# self.memb_stats["force_variance"] = self.global_variance(
+		# 		self.df_memb["force_variance"], shard_size, 
+		# 		shard_mean=self.df_memb["force_mean"], global_mean=force_global_mean
+		# )
+
+		self.memb_stats["velocity_scale"] = obtain_global_statistics.compute_global_percentile(self.df_memb["velocity_scale"], shard_size)
+		self.memb_stats["pressure_scale"] = obtain_global_statistics.compute_global_percentile(self.df_memb["pressure_scale"], shard_size)
+		self.memb_stats["force_scale"] = obtain_global_statistics.compute_global_percentile(self.df_memb["force_scale"], shard_size)
 		self.memb_stats["pointMass_min"] = np.min(self.df_memb["pointMass_min"])
 		self.memb_stats["pointMass_max"] = np.max(self.df_memb["pointMass_max"])
 		self.memb_stats["max_coordinate"] = np.max(self.df_memb["max_coordinate"])
 		self.memb_stats["min_coordinate"] = np.min(self.df_memb["min_coordinate"])
+
+
 		
 		return
 			
@@ -200,6 +257,8 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 	print("Computing global statistics for standardisation")
 	stats = obtain_global_statistics()
 	flow_stats, memb_stats = stats.get_stats()
+	print(flow_stats)
+	print(memb_stats)
 	
 	if loadData != True:
 		with open("./data/sim_metadata.json", "r") as f:
@@ -223,13 +282,12 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 				"flow"	:	flow_mesh.ball_connectivity(radius_train['radius_flow'])
 			}
 
+			print("Flow Nodes : ", flow_data.shape)
 			print("Flow Edges : ", edge_index['flow'].shape)
 			print("Memb Edges : ", edge_index['memb'].shape)
 
-			scaler = {
-				"memb"	:	memb_stats,
-				"flow"	:	flow_stats
-			}
+			start_index = int((sim_params["start"]/sim_params["gap"]) - 1)
+			print("Starting reading at : ", start_index)
 
 			for sample in range(num_samples):
 				for pair_num in range(1,t_extend+1):
@@ -243,17 +301,23 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 					y_memb = torch.tensor(data_sample_memb[1][pair_num-1], dtype=torch.float32, requires_grad=True) #-1 becoz I have already separated into input(0th one) and outputs
 
 					# Flow data (t=0, t=pair_num)
-					x_flow = torch.tensor(flow_data[sample, 0, :], dtype=torch.float32, requires_grad=True).transpose(0, 1)
-					y_flow = torch.tensor(flow_data[sample, pair_num, :], dtype=torch.float32, requires_grad=True).transpose(0, 1)
+					x_flow = torch.tensor(flow_data[start_index+sample, 0, :], dtype=torch.float32, requires_grad=True).transpose(0, 1)
+					y_flow = torch.tensor(flow_data[start_index+sample, pair_num, :], dtype=torch.float32, requires_grad=True).transpose(0, 1)
 
 					#Calculating cross attribute at t=0 and might have to think what attributes sh
-					sharedData = generateSharedData(flow_graph=flow_data[sample, 0, :], eulerian_domain=flow_mesh.get_grid_coords(), memb_graph=data_sample_memb[0], radius=radius_train['radius_cross'])
+					sharedData = generateSharedData(flow_graph=flow_data[start_index+sample, 0, :], eulerian_domain=flow_mesh.get_grid_coords(), memb_graph=data_sample_memb[0], radius=radius_train['radius_cross'])
 					get_cross_domain_edges = sharedData.computeSharedEdgeIndex()
 					get_cross_domain_edgeAttr = sharedData.computeSharedEdgeAttr(get_cross_domain_edges[('membrane', 'to', 'flow')])
-					print(sample, pair_num, sim_params["dt"]*pair_num, get_cross_domain_edgeAttr[('membrane', 'to', 'flow')].shape)
+					print(start_index+sample, pair_num, sim_params["dt"]*pair_num, get_cross_domain_edgeAttr[('membrane', 'to', 'flow')].shape)
+					# print(x_flow[48971,:])
+					# print(y_flow[48971,:])
+					# print("--")
+					# print(x_memb[12,:])
+					# print(y_memb[12,:])
 
 					data = HeteroData()
 					
+
 					#node features
 					data['flow'].x = x_flow
 					data['memb'].x = x_memb
@@ -308,4 +372,4 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 	val_loader = DataLoader([data_train[i] for i in val_indices], batch_size=batch_size, shuffle=False)
 
 
-	return train_loader, val_loader, scaler
+	return train_loader, val_loader

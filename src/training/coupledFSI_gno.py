@@ -36,25 +36,25 @@ def main(checkpoint_path=None):
 	params_network = {
 		'memb_net': {
 			'inNodeFeatures'				: 10, #Current keeping same as out dimension because we want to obtain latent dimension of output
-			'nNodeFeatEmbedding'		: 32,
+			'nNodeFeatEmbedding'		: 24,
 			'outNodeFeatures'				: 10,
 			'nEdgeFeatures'					: 7,
 			'ker_width'							: 8
 		},
 		'flow_net': {
 			'inNodeFeatures'				: 4,
-			'nNodeFeatEmbedding'		: 32,
+			'nNodeFeatEmbedding'		: 24,
 			'outNodeFeatures'				: 4,
 			'nEdgeFeatures'					: 14,
 			'ker_width'							: 4
 		},
-		'attn_dim'								: 32, #found 16 to be a better value compared to 8, 24, 32,
-		'nlayers'									: 8,
+		'attn_dim'								: 24, #found 16 to be a better value compared to 8, 24, 32,
+		'nlayers'									: 4,
 		'time_embedding_dim'			: 8
 	}
 	
 	params_training = {
-		'epochs' 								: 500,
+		'epochs' 								: 2,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
@@ -63,13 +63,13 @@ def main(checkpoint_path=None):
 	}
 
 	params_data = {
-		'batch_size' 		: 6,
+		'batch_size' 		: 3,
 		'ntsteps' 			: 2, #extra from current one
 		'val_split'			: 0.3
 	}
 
 	train_radius = {
-		'radius_flow' 	: 0.04,		 # keeping it >=
+		'radius_flow' 	: 0.08,		 # keeping it >=
 		'radius_memb'		: 0.04,		 #makes sense to keep <= 2X\Delta_memb
 		'radius_cross'  : 0.04     #makes sense to keep <= 2X\Delta_memb
 	}
@@ -77,11 +77,11 @@ def main(checkpoint_path=None):
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 	# Load data
-	train_loader, val_loader, scaler = dataloader(train_radius, 
-																								params_data['batch_size'],
-																								params_data['ntsteps'],
-																								params_data['val_split'],
-																								loadData = True)
+	train_loader, val_loader = dataloader(train_radius, 
+																				params_data['batch_size'],
+																				params_data['ntsteps'],
+																				params_data['val_split'],
+																				loadData = False)
 	
 
 	# train_loader, val_loader, scaler = dataloader_test('../sample_data/', train_radius['radius_flow'], 
@@ -104,11 +104,11 @@ def main(checkpoint_path=None):
 	optimizer = torch.optim.Adam(model_instance.parameters(), 
 															lr=params_training['learning_rate'])
 
-	# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 
-	# 																					 step_size=params_training['scheduler_step'], 
-	# 																					 gamma=params_training['scheduler_gamma'])
+	scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 
+																						 step_size=params_training['scheduler_step'], 
+																						 gamma=params_training['scheduler_gamma'])
 
-	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200, eta_min=0)
+	# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200, eta_min=0)
 	criterion = torch.nn.MSELoss()
 
 	# model_instance = torch.compile(model_instance, dynamic=True)
