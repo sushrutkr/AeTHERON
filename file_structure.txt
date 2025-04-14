@@ -25,3 +25,8 @@ coupled-fsi-training/
 ├── requirements.txt
 ├── LICENSE
 └── .gitignore
+
+To launch TensorBoard
+ctrl+shift+p 
+Python: Launch TensorBoard
+then open profile directory

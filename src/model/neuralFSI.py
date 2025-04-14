@@ -8,6 +8,7 @@ import torch.nn as nn
 from model.operators import *
 from model.spectral import *
 from scipy.ndimage import gaussian_filter
+from torch.utils.checkpoint import checkpoint
 import os
 import re
 
@@ -49,7 +50,7 @@ class neuralFSI(nn.Module):
     time_embeddings = get_timestep_embedding(batch['tau'], self.params['time_embedding_dim'], structure="ordered") #shape = (nBatches, time_embedding_dim)
 
     #interleave_repeat to implement repeat time embedding properly. so that tau can be mapped to all batches and then to all nodes.
-    x_memb = self.encoder["memb"]( torch.cat([batch['memb'].y, time_embeddings.repeat_interleave(nMembNodes, dim=0)], axis=1 ) ) #For now i just train to obtain the latent embedding of membrane nodes features at next timestep
+    y_memb = self.encoder["memb"]( torch.cat([batch['memb'].y, time_embeddings.repeat_interleave(nMembNodes, dim=0)], axis=1 ) ) #For now i just train to obtain the latent embedding of membrane nodes features at next timestep
     x_flow = self.encoder["flow"]( torch.cat([batch['flow'].x, time_embeddings.repeat_interleave(nFlowNodes, dim=0)], axis=1 ) )
 
     flow_edge_index = {
@@ -64,23 +65,18 @@ class neuralFSI(nn.Module):
 
     node_feat = {
       "flow" : x_flow,
-      "memb" : x_memb
+      "memb" : y_memb
     }
 
     tau = batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0)
     for layer in self.layers:
-      x_flow = layer(x_flow, node_feat, flow_edge_index, flow_edge_attr, tau)
+      y_flow = layer(node_feat, flow_edge_index, flow_edge_attr, tau)
 
-    # for i in range(self.params['nlayers']):
-    #   x_flow = F.relu(self.layer_flow(node_feat, flow_edge_index, flow_edge_attr))
-    #   x_flow = x_flow + self.time_condition["flow"](x_flow, 
-    #                                                 batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0))
-
-    x_memb = self.decoder["memb"]( x_memb )
-    x_flow = batch['flow'].x + (batch['tau'].view(-1,1).repeat_interleave(nFlowNodes, dim=0)) * self.decoder["flow"]( x_flow )
+    y_memb = self.decoder["memb"]( y_memb )
+    y_flow = self.decoder["flow"]( y_flow + x_flow )
 
     #z_f_new = 0.5 * z_f + 0.5 * self.dec_f(...)  # Momentum preservation
-    return x_flow, x_memb
+    return y_flow, y_memb
 
 class FlowEvolve(nn.Module):
   def __init__(self, params):
@@ -92,15 +88,15 @@ class FlowEvolve(nn.Module):
       # "memb" : time_conditioning(params['memb_net']['nNodeFeatEmbedding'])
     })
 
-  def forward(self, x_flow, node_feat, edge_index, edge_attr, tau):
+  def forward(self, node_feat, edge_index, edge_attr, tau):
     # GNO step
     gno_out = F.relu(self.layer_flow(node_feat, edge_index, edge_attr))
 
     # Time conditioning
     time_out = self.time_condition["flow"](gno_out, tau)
 
-    # Residual connection (input + output)
-    return x_flow + F.silu(time_out)  # Swish for smoothness, maybe Relu but have to see 
+    # Residual connection is already implemented in gno_out W*input + intraMessagePassing + crossMessagePassing
+    return F.silu(time_out)  # Swish for smoothness, maybe Relu but have to see 
 
 class FlowGNO(nn.Module):
   def __init__(self, params) -> None:
@@ -126,5 +122,29 @@ class FlowGNO(nn.Module):
   def forward(self,x, edge_index, edge_attr):
     x_cross = self.crossMessageLayer(x['flow'], x['memb'], edge_index['memb_to_flow'], edge_attr['memb_to_flow'])
     x_intra = self.intraMessageLayer(x['flow'], edge_index['flow_to_flow'], edge_attr['flow_to_flow']) 
+    # Residual connection is already implemented in intramessage passing W*input + intraMessagePassing + crossMessagePassing
     return x_intra + x_cross
 
+
+# class FlowGNO(nn.Module):
+#     def __init__(self, params) -> None:
+#         super(FlowGNO, self).__init__()
+
+#         self.kernel = DenseNet([params['flow_net']['nEdgeFeatures'], 
+#                                 params['flow_net']['ker_width'], 
+#                                 params['flow_net']['ker_width'], 
+#                                 params['flow_net']['nNodeFeatEmbedding']**2], 
+#                                torch.nn.ReLU)
+
+#         self.intraMessageLayer = intraMessagePassing(params['flow_net']['nNodeFeatEmbedding'], 
+#                                                     params['flow_net']['nNodeFeatEmbedding'], 
+#                                                     self.kernel)
+
+#     def forward(self, x, edge_index, edge_attr):
+#         with torch.profiler.record_function("DenseNet_Forward"):
+#             # We can't directly profile self.kernel(x) since it's called in intraMessagePassing
+#             x_intra = self.intraMessageLayer(x['flow'], edge_index['flow_to_flow'], edge_attr['flow_to_flow'])
+#         with torch.profiler.record_function("DenseNet_Backward"):
+#             if x_intra.requires_grad:
+#                 x_intra.retain_grad()  # Ensure gradients are tracked for profiling
+#         return x_intra

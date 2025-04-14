@@ -54,7 +54,7 @@ def main(checkpoint_path=None):
 	}
 	
 	params_training = {
-		'epochs' 								: 2,
+		'epochs' 								: 100,
 		'learning_rate' 				: 0.001 ,
 		'scheduler_step' 				: 500,  
 		'scheduler_gamma' 			: 0.5,
@@ -64,7 +64,7 @@ def main(checkpoint_path=None):
 
 	params_data = {
 		'batch_size' 		: 3,
-		'ntsteps' 			: 2, #extra from current one
+		'ntsteps' 			: 1, #extra from current one
 		'val_split'			: 0.3
 	}
 
@@ -130,6 +130,8 @@ def main(checkpoint_path=None):
 	for epoch in range(start_epoch, params_training['epochs']):
 		model_instance.train()
 		train_loss = 0.0
+		flow_loss_batch = 0.0
+		memb_loss_batch = 0.0 
 		for batch in train_loader:
 			optimizer.zero_grad(set_to_none=True)
 			batch = batch.to(device)
@@ -142,16 +144,23 @@ def main(checkpoint_path=None):
 			loss = loss_flow + loss_memb
 				
 			loss.backward()
-			del out_memb, out_flow, loss_flow, loss_memb
 			torch.nn.utils.clip_grad_norm_(model_instance.parameters(), 1.0)
 
 			optimizer.step()
 
 			train_loss += loss.item()
+			flow_loss_batch += loss_flow.item()
+			memb_loss_batch += loss_memb.item()
 			torch.cuda.empty_cache()
+			del out_memb, out_flow, loss_flow, loss_memb
 		
 		avg_train_loss = train_loss / len(train_loader)
-		print(f"Epoch {epoch+1}/{params_training['epochs']}, Train Loss: {avg_train_loss:.6f}, lr: {optimizer.param_groups[0]['lr']:.6f}")
+		print(
+				f"Epoch {epoch+1}/{params_training['epochs']}, Train Loss: {avg_train_loss:.6f}, "
+				f"Flow loss: {flow_loss_batch/len(train_loader):.6f}, "
+				f"Memb loss: {memb_loss_batch/len(train_loader):.6f}, "
+				f"lr: {optimizer.param_groups[0]['lr']:.6f}"
+		)
 
 		# Save model 
 		if (epoch + 1) % params_training['save_frequency'] == 0:
@@ -196,4 +205,4 @@ def main(checkpoint_path=None):
 
 if __name__ == "__main__":
 	main()
-	# main('model_epoch_300.pth')
+	# main('./utils/model_epoch_100.pth')

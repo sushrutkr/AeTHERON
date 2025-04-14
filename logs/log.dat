@@ -1,0 +1,90 @@
+Computing global statistics for standardisation
+defaultdict(None, {'velocity_scale': 0.5455631017684937, 'pressure_scale': 0.2517735585570336})
+defaultdict(None, {'velocity_scale': 1.6170096499463773, 'pressure_scale': 1.6684879999999993, 'force_scale': 0.0010247231629326, 'pointMass_min': 2.912864897286805e-06, 'pointMass_max': 1.5561310920029288e-05, 'max_coordinate': 21.0164, 'min_coordinate': 19.2997})
+Loading cached data from /mnt/Sushrut/data_train_cache.pt
+198
+----Loaded Data----
+Number of parameters: 21142
+True parameter memory: 0.084568MB
+Batch 0 | Peak: 44.03GB | Delta: 0.03GB | Cache: 44.55GB
+Batch 1 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 2 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 3 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 4 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 5 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 6 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 7 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 8 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 9 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 10 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 11 | Peak: 44.03GB | Delta: -0.00GB | Cache: 44.55GB
+Batch 12 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 13 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 14 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 15 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 16 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 17 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 18 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 19 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 20 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 21 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 22 | Peak: 44.03GB | Delta: -0.00GB | Cache: 44.55GB
+Batch 23 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 24 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 25 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 26 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 27 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 28 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 29 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 30 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 31 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 32 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 33 | Peak: 44.03GB | Delta: -0.00GB | Cache: 44.55GB
+Batch 34 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 35 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 36 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 37 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 38 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 39 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 40 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 41 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 42 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 43 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 44 | Peak: 44.03GB | Delta: -0.00GB | Cache: 44.55GB
+Batch 45 | Peak: 44.03GB | Delta: 0.00GB | Cache: 44.55GB
+Batch 46 | Peak: 14.69GB | Delta: -0.01GB | Cache: 44.55GB
+
+=== Epoch 0 DenseNet Memory Profile ===
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg       CPU Mem  Self CPU Mem      CUDA Mem  Self CUDA Mem    # of Calls  Total MFLOPs  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   aten::bmm         0.28%      19.512ms        13.19%     918.614ms      15.310ms        1.279s        15.26%        1.279s      21.311ms           0 b           0 b     159.94 Gb     159.94 Gb            60    475559.839  
+                                                 aten::addmm         0.09%       6.002ms         0.11%       7.650ms      46.366us     481.153ms         5.74%     481.153ms       2.916ms           0 b           0 b     150.79 Gb     150.79 Gb           165    668846.624  
+                                         aten::empty_strided         0.17%      12.072ms         0.17%      12.072ms       8.685us       0.000us         0.00%       0.000us       0.000us      88.64 Mb      88.64 Mb       7.13 Gb       7.13 Gb          1390            --  
+                                               aten::resize_         0.00%     192.921us         0.00%     192.921us       4.287us       0.000us         0.00%       0.000us       0.000us         480 b         480 b       6.15 Gb       6.15 Gb            45            --  
+                                                aten::gather         0.01%     599.075us         0.01%     871.655us      43.583us      32.207ms         0.38%      32.207ms       1.610ms           0 b           0 b       6.15 Gb       6.15 Gb            20            --  
+                                                   aten::mul         0.04%       3.035ms         0.16%      11.388ms      66.988us      16.654ms         0.20%      16.654ms      97.963us           0 b           0 b       3.64 Gb       3.64 Gb           170       707.835  
+                                                    aten::mm         0.16%      11.020ms         1.58%     109.795ms     313.699us     613.449ms         7.32%     614.748ms       1.756ms           0 b           0 b       3.44 Gb       3.18 Gb           350   1348194.363  
+                                    aten::threshold_backward         0.02%       1.229ms         0.11%       7.364ms     105.204us      14.237ms         0.17%      14.237ms     203.392us           0 b           0 b       2.57 Gb       2.57 Gb            70            --  
+                                             aten::clamp_min         0.01%     892.602us         0.02%       1.370ms      19.570us       9.866ms         0.12%       9.866ms     140.939us           0 b           0 b       2.57 Gb       2.57 Gb            70            --  
+                                                   aten::add         0.75%      52.480ms         0.78%      54.158ms     318.574us      11.354ms         0.14%      11.354ms      66.790us     529.25 Mb     529.25 Mb       2.35 Gb       2.35 Gb           170       770.289  
+                                                 aten::empty         0.14%       9.649ms         0.14%       9.649ms      10.375us       0.000us         0.00%       0.000us       0.000us      11.16 Mb      11.16 Mb       1.98 Gb       1.98 Gb           930            --  
+                                         aten::silu_backward         0.03%       1.845ms         0.20%      14.097ms     140.969us       8.413ms         0.10%       8.413ms      84.135us           0 b           0 b       1.54 Gb       1.54 Gb           100            --  
+                                                  aten::silu         0.02%       1.295ms         0.03%       1.857ms      18.573us       6.011ms         0.07%       6.011ms      60.115us           0 b           0 b       1.54 Gb       1.54 Gb           100            --  
+                                                   aten::div         0.01%     945.812us         0.02%       1.478ms      29.568us       2.775ms         0.03%       2.775ms      55.508us           0 b           0 b     527.56 Mb     527.56 Mb            50            --  
+                                                   aten::cat         1.96%     136.370ms         1.97%     137.282ms       1.445ms     573.631us         0.01%     573.631us       6.038us       2.37 Gb       2.37 Gb      67.54 Mb      67.54 Mb            95            --  
+                                                 aten::clamp         0.01%     492.994us         0.01%     694.101us      27.764us      62.366us         0.00%      62.366us       2.495us           0 b           0 b      10.96 Mb      10.96 Mb            25            --  
+                                                   aten::sum         0.09%       6.153ms         0.76%      53.151ms     287.304us     282.678ms         3.37%     282.678ms       1.528ms           0 b           0 b     112.50 Kb     112.50 Kb           185            --  
+                                            aten::reciprocal         0.01%     389.626us         0.01%     581.007us      58.101us      14.624us         0.00%      14.624us       1.462us           0 b           0 b       5.00 Kb       5.00 Kb            10            --  
+                                                   aten::sin         0.00%      74.824us         0.00%     109.825us      21.965us       6.559us         0.00%       6.559us       1.312us           0 b           0 b       2.50 Kb       2.50 Kb             5            --  
+                                                   aten::cos         0.00%      72.310us         0.00%     106.128us      21.226us       7.105us         0.00%       7.105us       1.421us           0 b           0 b       2.50 Kb       2.50 Kb             5            --  
+------------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 6.963s
+Self CUDA time total: 8.379s
+
+
+Epoch 0 Memory Summary:
+Max allocated: 14.69GB
+Max reserved: 44.55GB
+
+Epoch 1/1, Train Loss: 0.148202, Flow loss: 0.020659, Memb loss: 0.127543, lr: 0.001000

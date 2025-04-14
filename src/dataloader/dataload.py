@@ -346,10 +346,10 @@ def dataloader(radius_train, batch_size, t_extend=1, val_split = 0.3,loadData = 
 					data['memb','to','memb'].edge_index = torch.tensor(edge_index['memb'],dtype=torch.long)
 
 					#edge attribuets
-					data['flow','to','flow'].edge_attr = torch.tensor(edge_attr_flow, dtype=torch.float32)
+					data['flow','to','flow'].edge_attr = torch.tensor(edge_attr_flow, dtype=torch.float16)
 					# data['flow','to','membrane'].edge_attr = torch.tensor(get_cross_domain_edgeAttr[('flow', 'to', 'membrane')], dtype=torch.float32)
-					data['memb','to','flow'].edge_attr = torch.tensor(get_cross_domain_edgeAttr[('membrane', 'to', 'flow')], dtype=torch.float32)
-					data['memb','to','memb'].edge_attr = torch.tensor(edge_attr_memb, dtype=torch.float32)
+					data['memb','to','flow'].edge_attr = torch.tensor(get_cross_domain_edgeAttr[('membrane', 'to', 'flow')], dtype=torch.float16)
+					data['memb','to','memb'].edge_attr = torch.tensor(edge_attr_memb, dtype=torch.float16)
 				
 					data_train.append(data)
 
