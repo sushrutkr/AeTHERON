@@ -5,7 +5,7 @@ This repository contains the implementation of a coupled Fluid-Structure Interac
 ## Project Structure
 - `src/`: Source code
   - `model/`: Neural FSI model and operators
-  - `preprocessing/`: Data loading and preprocessing scripts
+  - `dataloader/`: Data loading and preprocessing scripts
   - `training/`: Training and evaluation scripts
 - `data/`: Simulation metadata and datasets
 - `logs/`: Training logs and model checkpoints
@@ -16,4 +16,8 @@ This repository contains the implementation of a coupled Fluid-Structure Interac
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/coupled-training.git
-   cd coupled-training
+   cd NeuralOpt_FSI/
+2. Setup Environment
+   conda env create -f ./utils/NeuralFSIEnv.yml
+3. Run model of distributed cluster
+    sbatch job

@@ -81,7 +81,8 @@ def main(checkpoint_path=None):
 																				params_data['batch_size'],
 																				params_data['ntsteps'],
 																				params_data['val_split'],
-																				loadData = False)
+																				loadData = False,
+																				cache_file="/home/skumar94/scr16_rmittal3/skumar94/GNO_FSI/TrainingData/data_train_cache.pt")
 	
 
 	# train_loader, val_loader, scaler = dataloader_test('../sample_data/', train_radius['radius_flow'], 
@@ -126,6 +127,9 @@ def main(checkpoint_path=None):
 	else:
 		best_val_loss = float('inf')
 
+	freeze_threshold = 1e-3
+	memb_frozen = False
+
 	#training
 	for epoch in range(start_epoch, params_training['epochs']):
 		model_instance.train()
@@ -147,6 +151,15 @@ def main(checkpoint_path=None):
 			torch.nn.utils.clip_grad_norm_(model_instance.parameters(), 1.0)
 
 			optimizer.step()
+
+			#Freezing membrane model after reaching a the
+			if (loss_memb.item()<freeze_threshold) and (not memb_frozen):
+				for p in model_instance.module.encoder["memb"].parameters():
+					p.requires_grad = False
+				for p in model_instance.module.decoder["memb"].parameters():
+					p.requires_grad = False
+				memb_frozen = True
+				print(f"Frozen membrane head at epoch {epoch}")  			
 
 			train_loss += loss.item()
 			flow_loss_batch += loss_flow.item()

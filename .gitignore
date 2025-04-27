@@ -22,9 +22,10 @@ ref_models/coupled_training_type1/Post_Proc_Data/
 /utils/*.pth
 /coupled_training/__pycache__/*
 /src/model/__pycache__/*
-/src/dataloader/__pycache__/*
+src/dataloader/__pycache__/*
 /Post_Proc_Data/*
 /src/preprocessing/__pycache__/*
 /coupled_training/data_train_cache.pt
 /__pycache__/
 /logs/*
+slurm*
