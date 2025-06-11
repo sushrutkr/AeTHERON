@@ -1,6 +1,6 @@
 # Coupled FSI Training
 
-This repository contains the implementation of a coupled Fluid-Structure Interaction (FSI) model using Graph Neural Operators (GNO). The project focuses on preprocessing simulation data, training a neural FSI model, and verifying its performance.
+This repository contains the implementation of a Attention-based Time-conditioned Heterogeneous gRaph Neural OperatOr for flow-structure iNteraction(AeTHERON) simulations. The project focuses on preprocessing simulation data, training a neural FSI model, and verifying its performance.
 
 ## Project Structure
 - `src/`: Source code
